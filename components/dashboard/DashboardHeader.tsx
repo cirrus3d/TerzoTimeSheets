@@ -18,6 +18,7 @@ export function DashboardHeader({ onStoreChange }: DashboardHeaderProps) {
 
   useEffect(() => {
     fetchStores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchStores = async () => {

@@ -22,6 +22,7 @@ export function EmployeeManagement() {
   useEffect(() => {
     fetchStores();
     fetchEmployees();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchStores = async () => {

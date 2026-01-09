@@ -31,12 +31,14 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
       fetchEmployees();
       fetchEntries();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedStoreId]);
 
   useEffect(() => {
     if (selectedStoreId) {
       fetchEntries();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDate]);
 
   const fetchEmployees = async () => {

@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import Link from 'next/link';
 
 export default async function TestPage() {
   const supabase = await createClient();
@@ -50,12 +51,12 @@ export default async function TestPage() {
         </div>
         
         <div className="mt-6">
-          <a 
+          <Link 
             href="/" 
             className="text-blue-600 hover:text-blue-800 text-sm"
           >
             ← Back to Login
-          </a>
+          </Link>
         </div>
       </div>
     </div>

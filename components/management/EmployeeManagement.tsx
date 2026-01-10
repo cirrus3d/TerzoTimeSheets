@@ -40,6 +40,7 @@ export function EmployeeManagement() {
     const { data, error } = await supabase
       .from('employees')
       .select('*, store:stores(*)')
+      .is('deleted_at', null)
       .order('last_name');
 
     if (!error && data) {
@@ -83,8 +84,12 @@ export function EmployeeManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm('Are you sure? This will delete all timesheet entries for this employee.')) {
-      await supabase.from('employees').delete().eq('id', id);
+    if (confirm('Are you sure? This employee will no longer appear in future timesheets but will remain in historical records.')) {
+      // Soft delete: set deleted_at timestamp instead of actually deleting
+      await supabase
+        .from('employees')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', id);
       await fetchEmployees();
     }
   };

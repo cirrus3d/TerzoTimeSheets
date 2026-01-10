@@ -44,11 +44,17 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
   const fetchEmployees = async () => {
     if (!selectedStoreId) return;
 
+    // Fetch employees that should be visible for the current date
+    // Include employees where:
+    // - created_at <= currentDate (employee existed on this date)
+    // - AND (deleted_at IS NULL OR deleted_at > currentDate) (not deleted yet on this date)
     const { data, error } = await supabase
       .from('employees')
       .select('*, store:stores(*)')
       .eq('store_id', selectedStoreId)
-      .order('last_name');
+      .lte('created_at', `${currentDate}T23:59:59`)
+      .or(`deleted_at.is.null,deleted_at.gt.${currentDate}T23:59:59`)
+      .order('last_name', { ascending: true });
 
     if (!error && data) {
       setEmployees(data);
@@ -60,9 +66,9 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
     const { data, error } = await supabase
       .from('timesheet_entries')
-      .select('*, employee:employees!inner(*, store:stores(*))')
-      .eq('employee.store_id', selectedStoreId)
+      .select('*, employee:employees(*, store:stores(*))')
       .eq('date', currentDate)
+      .eq('employee.store_id', selectedStoreId)
       .order('clock_in');
 
     if (!error && data) {
@@ -135,6 +141,14 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
     setIsModalOpen(true);
   };
 
+  const openModalForEmployee = (employeeId: string) => {
+    setEditingEntry(null);
+    setSelectedEmployeeId(employeeId);
+    setClockIn('09:00');
+    setClockOut('17:00');
+    setIsModalOpen(true);
+  };
+
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingEntry(null);
@@ -155,6 +169,10 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
     setCurrentDate(formatDate(new Date()));
   };
 
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentDate(e.target.value);
+  };
+
   return (
     <div>
       <div className="mb-6">
@@ -167,13 +185,21 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
           <Button onClick={goToPreviousDay} variant="secondary">
             ← Previous
           </Button>
-          <div className="text-center">
+          <div className="text-center flex flex-col items-center gap-2">
             <p className="text-lg font-semibold text-gray-900">
               {formatDisplayDate(currentDate)}
             </p>
-            <Button onClick={goToToday} variant="secondary" className="mt-2 text-sm">
-              Today
-            </Button>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={currentDate}
+                onChange={handleDateChange}
+                className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+              />
+              <Button onClick={goToToday} variant="secondary" className="text-sm">
+                Today
+              </Button>
+            </div>
           </div>
           <Button onClick={goToNextDay} variant="secondary">
             Next →
@@ -206,35 +232,46 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {entries.map((entry) => (
-              <tr key={entry.id}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                  {entry.employee?.first_name} {entry.employee?.last_name}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {entry.employee?.store?.name || 'N/A'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {entry.clock_in}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  {entry.clock_out}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
-                  {entry.hours.toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <div className="flex gap-2 justify-end">
-                    <Button onClick={() => openModal(entry)} variant="secondary">
-                      Edit
-                    </Button>
-                    <Button onClick={() => handleDelete(entry.id)} variant="danger">
-                      Delete
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {employees.map((employee) => {
+              const entry = entries.find(e => e.employee_id === employee.id);
+              return (
+                <tr key={employee.id}>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {employee.last_name} {employee.first_name}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {employee.store?.name || 'N/A'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {entry?.clock_in || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {entry?.clock_out || '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                    {entry ? entry.hours.toFixed(2) : '-'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex gap-2 justify-end">
+                      {entry ? (
+                        <>
+                          <Button onClick={() => openModal(entry)} variant="secondary">
+                            Edit
+                          </Button>
+                          <Button onClick={() => handleDelete(entry.id)} variant="danger">
+                            Delete
+                          </Button>
+                        </>
+                      ) : (
+                        <Button onClick={() => openModalForEmployee(employee.id)} variant="secondary">
+                          Add Entry
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -243,11 +280,11 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
         <p className="text-center text-gray-500 py-8">Please select a store to view timesheet entries.</p>
       )}
 
-      {selectedStoreId && entries.length === 0 && (
-        <p className="text-center text-gray-500 py-8">No entries for this date. Add one to get started!</p>
+      {selectedStoreId && employees.length === 0 && (
+        <p className="text-center text-gray-500 py-8">No employees found for this store on this date.</p>
       )}
 
-      {selectedStoreId && entries.length > 0 && (
+      {selectedStoreId && employees.length > 0 && entries.length > 0 && (
         <div className="mt-4 p-4 bg-gray-50 rounded-lg">
           <p className="text-lg font-semibold text-gray-900">
             Total Hours: {entries.reduce((sum, entry) => sum + entry.hours, 0).toFixed(2)}

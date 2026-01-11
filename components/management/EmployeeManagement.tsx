@@ -16,6 +16,8 @@ export function EmployeeManagement() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [storeId, setStoreId] = useState('');
+  const [hiringDate, setHiringDate] = useState('');
+  const [firingDate, setFiringDate] = useState('');
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
@@ -40,7 +42,6 @@ export function EmployeeManagement() {
     const { data, error } = await supabase
       .from('employees')
       .select('*, store:stores(*)')
-      .is('deleted_at', null)
       .order('last_name');
 
     if (!error && data) {
@@ -60,6 +61,8 @@ export function EmployeeManagement() {
             first_name: firstName,
             last_name: lastName,
             store_id: storeId,
+            hiring_date: hiringDate,
+            firing_date: firingDate || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', editingEmployee.id);
@@ -71,7 +74,13 @@ export function EmployeeManagement() {
       } else {
         const { error } = await supabase
           .from('employees')
-          .insert([{ first_name: firstName, last_name: lastName, store_id: storeId }]);
+          .insert([{ 
+            first_name: firstName, 
+            last_name: lastName, 
+            store_id: storeId,
+            hiring_date: hiringDate,
+            firing_date: firingDate || null
+          }]);
 
         if (!error) {
           await fetchEmployees();
@@ -83,28 +92,21 @@ export function EmployeeManagement() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Are you sure? This employee will no longer appear in future timesheets but will remain in historical records.')) {
-      // Soft delete: set deleted_at timestamp instead of actually deleting
-      await supabase
-        .from('employees')
-        .update({ deleted_at: new Date().toISOString() })
-        .eq('id', id);
-      await fetchEmployees();
-    }
-  };
-
   const openModal = (employee?: Employee) => {
     if (employee) {
       setEditingEmployee(employee);
       setFirstName(employee.first_name);
       setLastName(employee.last_name);
       setStoreId(employee.store_id);
+      setHiringDate(employee.hiring_date || '');
+      setFiringDate(employee.firing_date || '');
     } else {
       setEditingEmployee(null);
       setFirstName('');
       setLastName('');
       setStoreId('');
+      setHiringDate(new Date().toISOString().split('T')[0]); // Default to today
+      setFiringDate('');
     }
     setIsModalOpen(true);
   };
@@ -115,6 +117,8 @@ export function EmployeeManagement() {
     setFirstName('');
     setLastName('');
     setStoreId('');
+    setHiringDate('');
+    setFiringDate('');
   };
 
   return (
@@ -134,6 +138,12 @@ export function EmployeeManagement() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Store
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Hiring Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
@@ -148,13 +158,24 @@ export function EmployeeManagement() {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {employee.store?.name || 'N/A'}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {employee.hiring_date || 'N/A'}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm">
+                  {employee.firing_date ? (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                      Fired: {employee.firing_date}
+                    </span>
+                  ) : (
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                      Active
+                    </span>
+                  )}
+                </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                   <div className="flex gap-2 justify-end">
                     <Button onClick={() => openModal(employee)} variant="secondary">
                       Edit
-                    </Button>
-                    <Button onClick={() => handleDelete(employee.id)} variant="danger">
-                      Delete
                     </Button>
                   </div>
                 </td>
@@ -213,6 +234,32 @@ export function EmployeeManagement() {
               required
               disabled={loading}
             />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Hiring Date
+            </label>
+            <Input
+              type="date"
+              value={hiringDate}
+              onChange={(e) => setHiringDate(e.target.value)}
+              required
+              disabled={loading}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Firing Date (Optional)
+            </label>
+            <Input
+              type="date"
+              value={firingDate}
+              onChange={(e) => setFiringDate(e.target.value)}
+              disabled={loading}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Leave empty if employee is still active. Employee will stop appearing in timesheets from this date forward.
+            </p>
           </div>
           <div className="flex gap-2 justify-end">
             <Button type="button" onClick={closeModal} variant="secondary" disabled={loading}>

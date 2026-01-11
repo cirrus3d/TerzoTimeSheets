@@ -32,32 +32,31 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
       fetchEntries();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStoreId]);
-
-  useEffect(() => {
-    if (selectedStoreId) {
-      fetchEntries();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate]);
+  }, [selectedStoreId, currentDate]);
 
   const fetchEmployees = async () => {
     if (!selectedStoreId) return;
 
-    // Fetch employees that should be visible for the current date
-    // Include employees where:
-    // - created_at <= currentDate (employee existed on this date)
-    // - AND (deleted_at IS NULL OR deleted_at > currentDate) (not deleted yet on this date)
+    // Fetch all employees for the store
     const { data, error } = await supabase
       .from('employees')
       .select('*, store:stores(*)')
       .eq('store_id', selectedStoreId)
-      .lte('created_at', `${currentDate}T23:59:59`)
-      .or(`deleted_at.is.null,deleted_at.gt.${currentDate}T23:59:59`)
       .order('last_name', { ascending: true });
 
     if (!error && data) {
-      setEmployees(data);
+      // Filter employees based on hiring_date and firing_date
+      const filteredEmployees = data.filter(emp => {
+        // Employee should appear if:
+        // - hiring_date <= currentDate (employee was hired by this date)
+        // - AND (firing_date is NULL OR firing_date > currentDate) (still employed on this date)
+        const wasHiredByThisDate = emp.hiring_date <= currentDate;
+        const stillEmployedOnThisDate = !emp.firing_date || emp.firing_date > currentDate;
+        
+        return wasHiredByThisDate && stillEmployedOnThisDate;
+      });
+      
+      setEmployees(filteredEmployees);
     }
   };
 

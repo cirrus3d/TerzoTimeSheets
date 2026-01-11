@@ -19,13 +19,16 @@ CREATE TABLE employees (
   store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   first_name VARCHAR(255) NOT NULL,
   last_name VARCHAR(255) NOT NULL,
+  hiring_date DATE NOT NULL,
+  firing_date DATE DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 ```
 
-**Note:** The `deleted_at` column enables soft deletion. When an employee is "deleted", we set this timestamp instead of removing the record. This ensures deleted employees still appear in historical timesheets but not in current/future ones.
+**Note:** 
+- `hiring_date`: The date when the employee started working. They will appear in timesheets from this date forward.
+- `firing_date`: The date when the employee was terminated. They will appear in timesheets up to (but not including) this date. NULL means currently employed.
 
 ### timesheet_entries
 ```sql
@@ -45,7 +48,8 @@ CREATE TABLE timesheet_entries (
 ## Indexes
 ```sql
 CREATE INDEX idx_employees_store_id ON employees(store_id);
-CREATE INDEX idx_employees_deleted_at ON employees(deleted_at);
+CREATE INDEX idx_employees_hiring_date ON employees(hiring_date);
+CREATE INDEX idx_employees_firing_date ON employees(firing_date);
 CREATE INDEX idx_timesheet_entries_employee_id ON timesheet_entries(employee_id);
 CREATE INDEX idx_timesheet_entries_date ON timesheet_entries(date);
 ```
@@ -85,13 +89,25 @@ CREATE POLICY "Allow authenticated users full access to timesheet_entries" ON ti
 4. Create an admin user in Authentication > Users
 5. Copy your project URL and anon key to .env.local
 
-## Migration: Adding deleted_at column
+## Migration: Adding hiring_date and firing_date columns
 
 If you already have the employees table created, run this migration:
 ```sql
--- Add deleted_at column to existing employees table
-ALTER TABLE employees ADD COLUMN deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+-- Add hiring_date and firing_date columns
+ALTER TABLE employees ADD COLUMN hiring_date DATE;
+ALTER TABLE employees ADD COLUMN firing_date DATE DEFAULT NULL;
 
--- Create index for performance
-CREATE INDEX idx_employees_deleted_at ON employees(deleted_at);
+-- Set hiring_date to created_at date for existing employees
+UPDATE employees SET hiring_date = created_at::DATE WHERE hiring_date IS NULL;
+
+-- Make hiring_date NOT NULL after setting values
+ALTER TABLE employees ALTER COLUMN hiring_date SET NOT NULL;
+
+-- Remove old deleted_at column if it exists
+ALTER TABLE employees DROP COLUMN IF EXISTS deleted_at;
+DROP INDEX IF EXISTS idx_employees_deleted_at;
+
+-- Create indexes for performance
+CREATE INDEX idx_employees_hiring_date ON employees(hiring_date);
+CREATE INDEX idx_employees_firing_date ON employees(firing_date);
 ```

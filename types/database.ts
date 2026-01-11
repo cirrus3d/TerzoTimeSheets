@@ -10,6 +10,8 @@ export interface Employee {
   store_id: string;
   first_name: string;
   last_name: string;
+  hiring_date: string;
+  firing_date: string | null;
   created_at: string;
   updated_at: string;
   store?: Store;

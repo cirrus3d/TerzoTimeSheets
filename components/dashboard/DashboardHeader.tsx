@@ -9,9 +9,10 @@ import Link from 'next/link';
 
 interface DashboardHeaderProps {
   onStoreChange: (storeId: string) => void;
+  currentPage?: 'dashboard' | 'reports' | 'management';
 }
 
-export function DashboardHeader({ onStoreChange }: DashboardHeaderProps) {
+export function DashboardHeader({ onStoreChange, currentPage = 'dashboard' }: DashboardHeaderProps) {
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
   const supabase = createClient();
@@ -61,8 +62,32 @@ export function DashboardHeader({ onStoreChange }: DashboardHeaderProps) {
           </div>
           <div className="flex gap-4">
             <Link
+              href="/dashboard"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                currentPage === 'dashboard'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+              }`}
+            >
+              Timesheets
+            </Link>
+            <Link
+              href="/reports"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                currentPage === 'reports'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+              }`}
+            >
+              Reports
+            </Link>
+            <Link
               href="/management"
-              className="px-4 py-2 rounded-lg font-medium transition-colors duration-200 bg-gray-200 text-gray-900 hover:bg-gray-300"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                currentPage === 'management'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+              }`}
             >
               Manage
             </Link>

@@ -47,14 +47,40 @@ export function StoreManagement() {
           closeModal();
         }
       } else {
-        const { error } = await supabase
-          .from('stores')
-          .insert([{ name: storeName }]);
-
-        if (!error) {
-          await fetchStores();
-          closeModal();
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        if (!user) {
+          alert('You must be logged in to create a store');
+          return;
         }
+
+        // Insert the store
+        const { data: newStore, error: storeError } = await supabase
+          .from('stores')
+          .insert([{ name: storeName }])
+          .select()
+          .single();
+
+        if (storeError) {
+          alert('Error creating store: ' + storeError.message);
+          return;
+        }
+
+        // Assign the store to the current user
+        const { error: assignError } = await supabase
+          .from('user_stores')
+          .insert([{ user_id: user.id, store_id: newStore.id }]);
+
+        if (assignError) {
+          // If assignment fails, delete the store to maintain consistency
+          await supabase.from('stores').delete().eq('id', newStore.id);
+          alert('Error assigning store: ' + assignError.message);
+          return;
+        }
+
+        await fetchStores();
+        closeModal();
       }
     } finally {
       setLoading(false);

@@ -10,6 +10,17 @@ Next.js 14 application for managing employee timesheets for cafe-bars using Supa
 - [x] Create store and employee management
 - [x] Build daily timesheet interface
 - [x] Install dependencies and test
+- [x] Add employee hiring/firing date system
+- [x] Create reports page with weekly and monthly views
+- [x] Implement user-store access control
+
+## Key Features
+- **Store Management**: Create and manage multiple cafe-bar locations
+- **Employee Management**: Track employees with hiring and firing dates
+- **Daily Timesheets**: Record clock-in/out times with 15-minute intervals
+- **Reports**: Weekly and monthly hour summaries per employee
+- **Access Control**: Users only see stores they're assigned to
+- **Date Navigation**: Calendar picker for easy date selection
 
 ## Project Structure
 - `/app` - Next.js App Router pages
@@ -19,7 +30,13 @@ Next.js 14 application for managing employee timesheets for cafe-bars using Supa
 
 ## Next Steps
 1. Set up a Supabase project
-2. Run the SQL commands from DATABASE_SCHEMA.md
+2. Run the SQL commands from DATABASE_SCHEMA.md to create tables and RLS policies
 3. Create a .env.local file with your Supabase credentials
 4. Create an admin user in Supabase Auth
-5. Run `npm run dev` to start the development server
+5. Assign the admin user to stores (see USER_STORE_MANAGEMENT.md)
+6. Run `npm run dev` to start the development server
+
+## Important Files
+- `DATABASE_SCHEMA.md` - Complete database schema and migration scripts
+- `USER_STORE_MANAGEMENT.md` - Guide for assigning users to stores
+- `.env.local.example` - Example environment variables

@@ -6,13 +6,24 @@ A modern Next.js application for managing employee timesheets for cafe-bars. Bui
 
 - **Authentication**: Secure login for administrators
 - **Store Management**: Create, edit, and delete stores
-- **Employee Management**: Manage employees per store with first name and last name
+- **Employee Management**: Manage employees per store with hiring and firing dates
 - **Daily Timesheet**: 
-  - View timesheets by date with navigation (previous/next day)
+  - View timesheets by date with calendar picker navigation
   - Add, edit, and delete timesheet entries
   - Clock-in and clock-out times with 15-minute intervals
   - Automatic hours calculation
   - Mobile-responsive popup modals for easy data entry
+  - Store filtering via dropdown
+- **Reports**:
+  - Weekly reports with daily breakdown and totals
+  - Monthly reports with aggregate statistics
+  - Store-filtered views
+  - Date navigation for historical data
+- **Access Control**: 
+  - Store-based access control for users
+  - Users can only view/manage assigned stores
+  - Enforced at database level via RLS policies
+- **Employee Lifecycle**: Track hiring and firing dates for accurate historical reporting
 - **Cascading Deletes**: Deleting a store automatically removes all associated employees and their timesheet entries
 
 ## Tech Stack
@@ -42,7 +53,9 @@ npm install
 1. Go to [Supabase](https://supabase.com) and create a new project
 2. Wait for the project to be provisioned
 3. Navigate to the SQL Editor in your Supabase dashboard
-4. Run the SQL commands from `DATABASE_SCHEMA.md` to create the tables, indexes, and RLS policies
+4. **Option A** - Fresh installation: Run all commands from `setup.sql`
+5. **Option B** - Upgrade existing installation: Run `migration_access_control.sql`
+6. The database tables, indexes, and RLS policies will be created automatically
 
 ### 3. Configure Environment Variables
 
@@ -67,6 +80,10 @@ npm install
 2. Click "Add user" > "Create new user"
 3. Enter an email and password for the admin account
 4. Click "Create user"
+5. **Important**: Assign the user to stores they should manage:
+   - Go to SQL Editor
+   - Run: `INSERT INTO user_stores (user_id, store_id) VALUES ('user-uuid', 'store-uuid');`
+   - See `USER_STORE_MANAGEMENT.md` for detailed instructions
 
 ### 5. Run the Development Server
 
@@ -84,30 +101,53 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ### Managing Stores
 - Navigate to the "Manage" section from the dashboard
 - Add, edit, or delete stores
+- **New stores are automatically assigned to the creator**
 - Note: Deleting a store will remove all associated employees
 
 ### Managing Employees
-- In the "Manage" section, add employees with their first name, last name, and assigned store
+- In the "Manage" section, add employees with:
+  - First name and last name
+  - Assigned store
+  - Hiring date (when they started)
+  - Firing date (optional, when they were terminated)
+- Employees only appear in timesheets during their employment period
 - Edit or delete employees as needed
 
 ### Daily Timesheet
+- Select a store from the dropdown in the header
 - The main dashboard shows the timesheet for the current day
-- Use "Previous" and "Next" buttons to navigate between days
+- Use calendar picker or "Previous/Next" buttons to navigate between days
 - Click "Today" to quickly return to the current date
 - Click "Add Entry" to add a new timesheet entry:
-  - Select an employee
+  - Select an employee (only active employees shown for the selected date)
   - Choose clock-in time (15-minute intervals)
   - Choose clock-out time (15-minute intervals)
   - Hours are calculated automatically
 - Edit or delete entries as needed
 - View the total hours for the day at the bottom
 
+### Reports
+- Click "Reports" in the header to access reporting
+- Toggle between Weekly and Monthly views
+- **Weekly Report**: Shows hours per employee per day with totals
+- **Monthly Report**: Shows total hours, days worked, and averages
+- Use navigation buttons to view historical data
+- Reports are filtered by selected store
+
+### Access Control
+- Users can only view and manage stores they are assigned to
+- Contact your administrator to gain access to additional stores
+- See `USER_STORE_MANAGEMENT.md` for admin instructions
+
 ## Database Schema
 
 See `DATABASE_SCHEMA.md` for the complete database schema including:
-- Tables: stores, employees, timesheet_entries
+- Tables: stores, employees, timesheet_entries, user_stores
 - Indexes for optimized queries
-- Row Level Security (RLS) policies
+- Row Level Security (RLS) policies for store-based access control
+- Migration scripts for upgrading existing installations
+
+For detailed information on managing user access to stores, see `USER_STORE_MANAGEMENT.md`.
 
 ## Project Structure
 
@@ -116,6 +156,7 @@ TerzoTimeSheets/
 ├── app/                      # Next.js App Router pages
 │   ├── dashboard/           # Main timesheet dashboard
 │   ├── management/          # Store and employee management
+│   ├── reports/             # Weekly and monthly reports
 │   ├── layout.tsx           # Root layout
 │   ├── page.tsx            # Login page
 │   └── globals.css         # Global styles
@@ -123,11 +164,17 @@ TerzoTimeSheets/
 │   ├── auth/               # Authentication components
 │   ├── management/         # Store and employee management
 │   ├── timesheet/          # Timesheet components
+│   ├── reports/            # Report components
 │   └── ui/                 # Reusable UI components
 ├── lib/                    # Utility functions
 │   ├── supabase/           # Supabase client configuration
 │   └── utils/              # Helper functions (date, time)
-└── types/                  # TypeScript type definitions
+├── types/                  # TypeScript type definitions
+├── DATABASE_SCHEMA.md      # Complete database schema
+├── USER_STORE_MANAGEMENT.md # User access control guide
+├── setup.sql               # Fresh installation script
+├── migration_access_control.sql # Upgrade script
+└── ACCESS_CONTROL_SUMMARY.md # Implementation summary
 ```
 
 ## Scripts

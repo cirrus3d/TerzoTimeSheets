@@ -6,6 +6,7 @@ import { Employee, TimesheetEntry } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils/date';
 import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
+import { exportMonthlyReportToPDF, exportMonthlyReportToXLS, MonthlyReportData } from '@/lib/utils/export';
 
 interface MonthlyReportProps {
   selectedStoreId: string;
@@ -16,6 +17,7 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [storeName, setStoreName] = useState('');
   const supabase = createClient();
 
   const monthEnd = endOfMonth(currentMonth);
@@ -32,6 +34,17 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
     setLoading(true);
 
     try {
+      // Fetch store name
+      const { data: storeData } = await supabase
+        .from('stores')
+        .select('name')
+        .eq('id', selectedStoreId)
+        .single();
+
+      if (storeData) {
+        setStoreName(storeData.name);
+      }
+
       // Fetch employees
       const { data: employeesData } = await supabase
         .from('employees')
@@ -99,6 +112,42 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
     setCurrentMonth(startOfMonth(new Date()));
   };
 
+  const handleExportPDF = async () => {
+    const reportData: MonthlyReportData = {
+      storeName,
+      monthYear: format(currentMonth, 'MMMM yyyy'),
+      employees: employees.map(emp => ({
+        name: `${emp.first_name} ${emp.last_name}`,
+        daysWorked: getEmployeeDaysWorked(emp.id),
+        totalHours: getEmployeeMonthTotal(emp.id),
+        avgHours: getEmployeeDaysWorked(emp.id) > 0 
+          ? getEmployeeMonthTotal(emp.id) / getEmployeeDaysWorked(emp.id) 
+          : 0
+      })),
+      totalDaysWorked: getTotalDaysWorked(),
+      grandTotal: getMonthTotal()
+    };
+    await exportMonthlyReportToPDF(reportData);
+  };
+
+  const handleExportXLS = async () => {
+    const reportData: MonthlyReportData = {
+      storeName,
+      monthYear: format(currentMonth, 'MMMM yyyy'),
+      employees: employees.map(emp => ({
+        name: `${emp.first_name} ${emp.last_name}`,
+        daysWorked: getEmployeeDaysWorked(emp.id),
+        totalHours: getEmployeeMonthTotal(emp.id),
+        avgHours: getEmployeeDaysWorked(emp.id) > 0 
+          ? getEmployeeMonthTotal(emp.id) / getEmployeeDaysWorked(emp.id) 
+          : 0
+      })),
+      totalDaysWorked: getTotalDaysWorked(),
+      grandTotal: getMonthTotal()
+    };
+    await exportMonthlyReportToXLS(reportData);
+  };
+
   if (!selectedStoreId) {
     return (
       <p className="text-center text-gray-500 py-8">
@@ -109,21 +158,39 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-center gap-4 mb-6">
-        <Button onClick={goToPreviousMonth} variant="secondary">
-          ← Previous Month
-        </Button>
-        <div className="text-center">
-          <p className="text-lg font-semibold text-gray-900">
-            {format(currentMonth, 'MMMM yyyy')}
-          </p>
-          <Button onClick={goToCurrentMonth} variant="secondary" className="mt-2 text-sm">
-            Current Month
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button onClick={goToPreviousMonth} variant="secondary">
+            ← Previous Month
+          </Button>
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-900">
+              {format(currentMonth, 'MMMM yyyy')}
+            </p>
+            <Button onClick={goToCurrentMonth} variant="secondary" className="mt-2 text-sm">
+              Current Month
+            </Button>
+          </div>
+          <Button onClick={goToNextMonth} variant="secondary">
+            Next Month →
           </Button>
         </div>
-        <Button onClick={goToNextMonth} variant="secondary">
-          Next Month →
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleExportPDF} 
+            variant="secondary"
+            disabled={loading || employees.length === 0}
+          >
+            📄 Download PDF
+          </Button>
+          <Button 
+            onClick={handleExportXLS} 
+            variant="secondary"
+            disabled={loading || employees.length === 0}
+          >
+            📊 Download XLS
+          </Button>
+        </div>
       </div>
 
       {loading ? (

@@ -6,6 +6,7 @@ import { Employee, TimesheetEntry } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { formatDate, formatDisplayDate } from '@/lib/utils/date';
 import { startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval } from 'date-fns';
+import { exportWeeklyReportToPDF, exportWeeklyReportToXLS, WeeklyReportData } from '@/lib/utils/export';
 
 interface WeeklyReportProps {
   selectedStoreId: string;
@@ -16,6 +17,7 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [storeName, setStoreName] = useState('');
   const supabase = createClient();
 
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -33,6 +35,17 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
     setLoading(true);
 
     try {
+      // Fetch store name
+      const { data: storeData } = await supabase
+        .from('stores')
+        .select('name')
+        .eq('id', selectedStoreId)
+        .single();
+
+      if (storeData) {
+        setStoreName(storeData.name);
+      }
+
       // Fetch employees
       const { data: employeesData } = await supabase
         .from('employees')
@@ -102,6 +115,44 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
     setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
   };
 
+  const handleExportPDF = async () => {
+    const reportData: WeeklyReportData = {
+      storeName,
+      weekStart: formatDisplayDate(formatDate(currentWeekStart)),
+      weekEnd: formatDisplayDate(formatDate(weekEnd)),
+      employees: employees.map(emp => ({
+        name: `${emp.first_name} ${emp.last_name}`,
+        dailyHours: weekDays.map(day => getEmployeeHoursForDay(emp.id, day)),
+        total: getEmployeeWeekTotal(emp.id)
+      })),
+      dayNames: weekDays.map(day => 
+        `${day.toLocaleDateString('en-US', { weekday: 'short' })} ${day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      ),
+      dailyTotals: weekDays.map(day => getDayTotal(day)),
+      grandTotal: getWeekTotal()
+    };
+    await exportWeeklyReportToPDF(reportData);
+  };
+
+  const handleExportXLS = async () => {
+    const reportData: WeeklyReportData = {
+      storeName,
+      weekStart: formatDisplayDate(formatDate(currentWeekStart)),
+      weekEnd: formatDisplayDate(formatDate(weekEnd)),
+      employees: employees.map(emp => ({
+        name: `${emp.first_name} ${emp.last_name}`,
+        dailyHours: weekDays.map(day => getEmployeeHoursForDay(emp.id, day)),
+        total: getEmployeeWeekTotal(emp.id)
+      })),
+      dayNames: weekDays.map(day => 
+        `${day.toLocaleDateString('en-US', { weekday: 'short' })} ${day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      ),
+      dailyTotals: weekDays.map(day => getDayTotal(day)),
+      grandTotal: getWeekTotal()
+    };
+    await exportWeeklyReportToXLS(reportData);
+  };
+
   if (!selectedStoreId) {
     return (
       <p className="text-center text-gray-500 py-8">
@@ -112,21 +163,39 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-center gap-4 mb-6">
-        <Button onClick={goToPreviousWeek} variant="secondary">
-          ← Previous Week
-        </Button>
-        <div className="text-center">
-          <p className="text-lg font-semibold text-gray-900">
-            {formatDisplayDate(formatDate(currentWeekStart))} - {formatDisplayDate(formatDate(weekEnd))}
-          </p>
-          <Button onClick={goToCurrentWeek} variant="secondary" className="mt-2 text-sm">
-            Current Week
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-4">
+          <Button onClick={goToPreviousWeek} variant="secondary">
+            ← Previous Week
+          </Button>
+          <div className="text-center">
+            <p className="text-lg font-semibold text-gray-900">
+              {formatDisplayDate(formatDate(currentWeekStart))} - {formatDisplayDate(formatDate(weekEnd))}
+            </p>
+            <Button onClick={goToCurrentWeek} variant="secondary" className="mt-2 text-sm">
+              Current Week
+            </Button>
+          </div>
+          <Button onClick={goToNextWeek} variant="secondary">
+            Next Week →
           </Button>
         </div>
-        <Button onClick={goToNextWeek} variant="secondary">
-          Next Week →
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleExportPDF} 
+            variant="secondary"
+            disabled={loading || employees.length === 0}
+          >
+            📄 Download PDF
+          </Button>
+          <Button 
+            onClick={handleExportXLS} 
+            variant="secondary"
+            disabled={loading || employees.length === 0}
+          >
+            📊 Download XLS
+          </Button>
+        </div>
       </div>
 
       {loading ? (

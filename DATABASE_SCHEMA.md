@@ -58,6 +58,21 @@ CREATE TABLE user_stores (
 
 **Note:** This table manages which stores each admin user has access to. Users can only view and manage stores they are assigned to.
 
+### daily_comments
+```sql
+CREATE TABLE daily_comments (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  comment TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(store_id, date)
+);
+```
+
+**Note:** This table stores optional daily comments for each store. Admins can add notes or comments for any day in the timesheet view.
+
 ## Indexes
 ```sql
 CREATE INDEX idx_employees_store_id ON employees(store_id);
@@ -67,6 +82,7 @@ CREATE INDEX idx_timesheet_entries_employee_id ON timesheet_entries(employee_id)
 CREATE INDEX idx_timesheet_entries_date ON timesheet_entries(date);
 CREATE INDEX idx_user_stores_user_id ON user_stores(user_id);
 CREATE INDEX idx_user_stores_store_id ON user_stores(store_id);
+CREATE INDEX idx_daily_comments_store_date ON daily_comments(store_id, date);
 ```
 
 ## RLS (Row Level Security) Policies
@@ -76,6 +92,7 @@ Enable RLS on all tables:
 ALTER TABLE stores ENABLE ROW LEVEL SECURITY;
 ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
 ALTER TABLE timesheet_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_stores ENABLE ROW LEVEL SECURITY;
 ```
 
@@ -210,6 +227,44 @@ CREATE POLICY "Users can manage their store assignments" ON user_stores
   FOR ALL TO authenticated
   USING (user_id = auth.uid())
   WITH CHECK (user_id = auth.uid());
+
+-- Users can only access daily comments from their assigned stores
+CREATE POLICY "Users can view comments for their assigned stores" ON daily_comments
+  FOR SELECT TO authenticated
+  USING (
+    store_id IN (
+      SELECT store_id FROM user_stores WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can insert comments for their assigned stores" ON daily_comments
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    store_id IN (
+      SELECT store_id FROM user_stores WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update comments for their assigned stores" ON daily_comments
+  FOR UPDATE TO authenticated
+  USING (
+    store_id IN (
+      SELECT store_id FROM user_stores WHERE user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    store_id IN (
+      SELECT store_id FROM user_stores WHERE user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can delete comments for their assigned stores" ON daily_comments
+  FOR DELETE TO authenticated
+  USING (
+    store_id IN (
+      SELECT store_id FROM user_stores WHERE user_id = auth.uid()
+    )
+  );
 ```
 
 ## Setup Instructions

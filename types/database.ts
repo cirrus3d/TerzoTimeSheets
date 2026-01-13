@@ -48,3 +48,12 @@ export interface UserStore {
   created_at: string;
   store?: Store;
 }
+
+export interface DailyComment {
+  id: string;
+  store_id: string;
+  date: string;
+  comment: string | null;
+  created_at: string;
+  updated_at: string;
+}

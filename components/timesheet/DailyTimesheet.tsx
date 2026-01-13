@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Employee, TimesheetEntry, Store } from '@/types/database';
+import { Employee, TimesheetEntry, Store, DailyComment } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
@@ -23,10 +23,14 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
   const [clockIn, setClockIn] = useState('09:00');
   const [clockOut, setClockOut] = useState('17:00');
   const [loading, setLoading] = useState(false);
+  const [dailyComment, setDailyComment] = useState('');
+  const [commentId, setCommentId] = useState<string | null>(null);
+  const [isSavingComment, setIsSavingComment] = useState(false);
   const supabase = createClient();
   const timeOptions = generateTimeOptions();
 
   useEffect(() => {
+      fetchDailyComment();
     if (selectedStoreId) {
       fetchEmployees();
       fetchEntries();
@@ -72,6 +76,66 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
     if (!error && data) {
       setEntries(data);
+    }
+  };
+
+  const fetchDailyComment = async () => {
+    if (!selectedStoreId) return;
+
+    const { data, error } = await supabase
+      .from('daily_comments')
+      .select('*')
+      .eq('store_id', selectedStoreId)
+      .eq('date', currentDate)
+      .single();
+
+    if (!error && data) {
+      setDailyComment(data.comment || '');
+      setCommentId(data.id);
+    } else {
+      setDailyComment('');
+      setCommentId(null);
+    }
+  };
+
+  const saveDailyComment = async () => {
+    if (!selectedStoreId) return;
+
+    setIsSavingComment(true);
+    try {
+      if (commentId) {
+        // Update existing comment
+        const { error } = await supabase
+          .from('daily_comments')
+          .update({
+            comment: dailyComment || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', commentId);
+
+        if (error) {
+          console.error('Error updating comment:', error);
+        }
+      } else {
+        // Insert new comment
+        const { data, error } = await supabase
+          .from('daily_comments')
+          .insert([{
+            store_id: selectedStoreId,
+            date: currentDate,
+            comment: dailyComment || null,
+          }])
+          .select()
+          .single();
+
+        if (!error && data) {
+          setCommentId(data.id);
+        } else if (error) {
+          console.error('Error inserting comment:', error);
+        }
+      }
+    } finally {
+      setIsSavingComment(false);
     }
   };
 
@@ -283,11 +347,29 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
         <p className="text-center text-gray-500 py-8">No employees found for this store on this date.</p>
       )}
 
-      {selectedStoreId && employees.length > 0 && entries.length > 0 && (
-        <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+      {selectedStoreId && employees.length > 0 && (
+        <div className="mt-4 p-4 bg-gray-50 rounded-lg space-y-4">
           <p className="text-lg font-semibold text-gray-900">
             Total Hours: {entries.reduce((sum, entry) => sum + entry.hours, 0).toFixed(2)}
           </p>
+          
+          <div>
+            <label htmlFor="daily-comment" className="block text-sm font-medium text-gray-700 mb-2">
+              Daily Comment
+            </label>
+            <textarea
+              id="daily-comment"
+              value={dailyComment}
+              onChange={(e) => setDailyComment(e.target.value)}
+              onBlur={saveDailyComment}
+              placeholder="Add any notes or comments for this day..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 min-h-[80px] resize-y"
+              disabled={isSavingComment}
+            />
+            {isSavingComment && (
+              <p className="text-xs text-gray-500 mt-1">Saving...</p>
+            )}
+          </div>
         </div>
       )}
 

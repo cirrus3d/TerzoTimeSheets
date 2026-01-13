@@ -13,11 +13,13 @@ Next.js 14 application for managing employee timesheets for cafe-bars using Supa
 - [x] Add employee hiring/firing date system
 - [x] Create reports page with weekly and monthly views
 - [x] Implement user-store access control
+- [x] Add daily comments feature for timesheets
 
 ## Key Features
 - **Store Management**: Create and manage multiple cafe-bar locations
 - **Employee Management**: Track employees with hiring and firing dates
 - **Daily Timesheets**: Record clock-in/out times with 15-minute intervals
+- **Daily Comments**: Add optional notes for each day below total hours
 - **Reports**: Weekly and monthly hour summaries per employee
 - **Access Control**: Users only see stores they're assigned to
 - **Date Navigation**: Calendar picker for easy date selection
@@ -39,4 +41,6 @@ Next.js 14 application for managing employee timesheets for cafe-bars using Supa
 ## Important Files
 - `DATABASE_SCHEMA.md` - Complete database schema and migration scripts
 - `USER_STORE_MANAGEMENT.md` - Guide for assigning users to stores
+- `DAILY_COMMENTS_FEATURE.md` - Documentation for daily comments feature
+- `migration_daily_comments.sql` - Database migration for comments feature
 - `.env.local.example` - Example environment variables

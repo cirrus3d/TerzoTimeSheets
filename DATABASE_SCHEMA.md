@@ -65,13 +65,14 @@ CREATE TABLE daily_comments (
   store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   comment TEXT,
+  earnings DECIMAL(10,2),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(store_id, date)
 );
 ```
 
-**Note:** This table stores optional daily comments for each store. Admins can add notes or comments for any day in the timesheet view.
+**Note:** This table stores optional daily comments and earnings for each store. Admins can add notes or comments and track daily earnings in euros for any day in the timesheet view.
 
 ## Indexes
 ```sql

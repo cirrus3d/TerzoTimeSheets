@@ -54,6 +54,7 @@ export interface DailyComment {
   store_id: string;
   date: string;
   comment: string | null;
+  earnings: number | null;
   created_at: string;
   updated_at: string;
 }

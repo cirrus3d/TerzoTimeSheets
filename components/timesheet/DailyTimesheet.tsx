@@ -24,6 +24,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
   const [clockOut, setClockOut] = useState('17:00');
   const [loading, setLoading] = useState(false);
   const [dailyComment, setDailyComment] = useState('');
+  const [dailyEarnings, setDailyEarnings] = useState('');
   const [commentId, setCommentId] = useState<string | null>(null);
   const [isSavingComment, setIsSavingComment] = useState(false);
   const supabase = createClient();
@@ -91,9 +92,11 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
     if (!error && data) {
       setDailyComment(data.comment || '');
+      setDailyEarnings(data.earnings?.toString() || '');
       setCommentId(data.id);
     } else {
       setDailyComment('');
+      setDailyEarnings('');
       setCommentId(null);
     }
   };
@@ -109,6 +112,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
           .from('daily_comments')
           .update({
             comment: dailyComment || null,
+            earnings: dailyEarnings ? parseFloat(dailyEarnings) : null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', commentId);
@@ -124,6 +128,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             store_id: selectedStoreId,
             date: currentDate,
             comment: dailyComment || null,
+            earnings: dailyEarnings ? parseFloat(dailyEarnings) : null,
           }])
           .select()
           .single();
@@ -366,10 +371,29 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900 min-h-[80px] resize-y"
               disabled={isSavingComment}
             />
-            {isSavingComment && (
-              <p className="text-xs text-gray-500 mt-1">Saving...</p>
-            )}
           </div>
+          
+          <div>
+            <label htmlFor="daily-earnings" className="block text-sm font-medium text-gray-700 mb-2">
+              Daily Earnings (€)
+            </label>
+            <input
+              id="daily-earnings"
+              type="number"
+              step="0.01"
+              min="0"
+              value={dailyEarnings}
+              onChange={(e) => setDailyEarnings(e.target.value)}
+              onBlur={saveDailyComment}
+              placeholder="0.00"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+              disabled={isSavingComment}
+            />
+          </div>
+          
+          {isSavingComment && (
+            <p className="text-xs text-gray-500 mt-1">Saving...</p>
+          )}
         </div>
       )}
 

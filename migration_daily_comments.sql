@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS daily_comments (
   store_id UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   comment TEXT,
+  earnings DECIMAL(10,2),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(store_id, date)

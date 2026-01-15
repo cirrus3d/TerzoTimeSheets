@@ -68,11 +68,25 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
   const fetchEntries = async () => {
     if (!selectedStoreId) return;
 
+    // First get employees for the selected store
+    const { data: storeEmployees } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('store_id', selectedStoreId);
+
+    if (!storeEmployees || storeEmployees.length === 0) {
+      setEntries([]);
+      return;
+    }
+
+    const employeeIds = storeEmployees.map(emp => emp.id);
+
+    // Then get entries only for those employees
     const { data, error } = await supabase
       .from('timesheet_entries')
       .select('*, employee:employees(*, store:stores(*))')
       .eq('date', currentDate)
-      .eq('employee.store_id', selectedStoreId)
+      .in('employee_id', employeeIds)
       .order('clock_in');
 
     if (!error && data) {

@@ -1,14 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { Turnstile, TurnstileInstance } from '@marsidev/react-turnstile';
 
 export function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
   const router = useRouter();
   const supabase = createClient();
 
@@ -22,6 +25,31 @@ export function LoginForm() {
     const password = formData.get('password') as string;
     
     try {
+      // Verify Turnstile token first
+      if (!turnstileToken) {
+        setError('Please complete the security check');
+        setLoading(false);
+        return;
+      }
+
+      const verifyResponse = await fetch('/api/auth/verify-turnstile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: turnstileToken }),
+      });
+
+      const verifyData = await verifyResponse.json();
+
+      if (!verifyData.success) {
+        setError('Security verification failed. Please try again.');
+        // Reset Turnstile widget
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
+        setLoading(false);
+        return;
+      }
+
+      // Proceed with login if Turnstile verification passed
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -29,6 +57,9 @@ export function LoginForm() {
 
       if (signInError) {
         setError(signInError.message);
+        // Reset Turnstile on failed login
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
         setLoading(false);
       } else {
         // Wait a bit to ensure cookies are properly set
@@ -39,6 +70,8 @@ export function LoginForm() {
       }
     } catch (err) {
       setError('An unexpected error occurred');
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
       setLoading(false);
     }
   };
@@ -78,7 +111,21 @@ export function LoginForm() {
             {error}
           </div>
         )}
-        <Button type="submit" disabled={loading} className="w-full">
+        <div className="flex justify-center">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onError={() => {
+              setError('Security verification failed');
+              setTurnstileToken(null);
+            }}
+            onExpire={() => {
+              setTurnstileToken(null);
+            }}
+          />
+        </div>
+        <Button type="submit" disabled={loading || !turnstileToken} className="w-full">
           {loading ? 'Signing in...' : 'Sign In'}
         </Button>
       </form>

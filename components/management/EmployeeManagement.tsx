@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
+import { logAuditClient } from '@/lib/utils/audit-client';
 
 export function EmployeeManagement() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -55,6 +56,21 @@ export function EmployeeManagement() {
 
     try {
       if (editingEmployee) {
+        const oldValues = {
+          first_name: editingEmployee.first_name,
+          last_name: editingEmployee.last_name,
+          store_id: editingEmployee.store_id,
+          hiring_date: editingEmployee.hiring_date,
+          firing_date: editingEmployee.firing_date,
+        };
+        const newValues = {
+          first_name: firstName,
+          last_name: lastName,
+          store_id: storeId,
+          hiring_date: hiringDate,
+          firing_date: firingDate || null,
+        };
+
         const { error } = await supabase
           .from('employees')
           .update({
@@ -68,11 +84,20 @@ export function EmployeeManagement() {
           .eq('id', editingEmployee.id);
 
         if (!error) {
+          // Log audit for employee update
+          await logAuditClient(supabase, {
+            action: 'UPDATE',
+            entityType: 'employee',
+            entityId: editingEmployee.id,
+            entityName: `${firstName} ${lastName}`,
+            storeId: storeId,
+            changes: { before: oldValues, after: newValues },
+          });
           await fetchEmployees();
           closeModal();
         }
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('employees')
           .insert([{ 
             first_name: firstName, 
@@ -80,9 +105,18 @@ export function EmployeeManagement() {
             store_id: storeId,
             hiring_date: hiringDate,
             firing_date: firingDate || null
-          }]);
+          }])
+          .select();
 
-        if (!error) {
+        if (!error && data) {
+          // Log audit for employee creation
+          await logAuditClient(supabase, {
+            action: 'CREATE',
+            entityType: 'employee',
+            entityId: data[0].id,
+            entityName: `${firstName} ${lastName}`,
+            storeId: storeId,
+          });
           await fetchEmployees();
           closeModal();
         }

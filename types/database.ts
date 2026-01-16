@@ -58,3 +58,17 @@ export interface DailyComment {
   created_at: string;
   updated_at: string;
 }
+
+export interface AuditLog {
+  id: string;
+  user_id: string;
+  user_email: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE';
+  entity_type: 'timesheet_entry' | 'employee' | 'store' | 'daily_comment';
+  entity_id: string;
+  entity_name: string | null;
+  store_id: string | null;
+  changes: Record<string, any> | null;
+  metadata: Record<string, any> | null;
+  created_at: string;
+}

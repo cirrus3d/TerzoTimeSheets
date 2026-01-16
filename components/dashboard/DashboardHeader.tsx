@@ -9,7 +9,7 @@ import Link from 'next/link';
 
 interface DashboardHeaderProps {
   onStoreChange: (storeId: string) => void;
-  currentPage?: 'dashboard' | 'reports' | 'management';
+  currentPage?: 'dashboard' | 'reports' | 'management' | 'audit';
 }
 
 export function DashboardHeader({ onStoreChange, currentPage = 'dashboard' }: DashboardHeaderProps) {
@@ -90,6 +90,16 @@ export function DashboardHeader({ onStoreChange, currentPage = 'dashboard' }: Da
               }`}
             >
               Manage
+            </Link>
+            <Link
+              href="/audit"
+              className={`px-4 py-2 rounded-lg font-medium transition-colors duration-200 ${
+                currentPage === 'audit'
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-200 text-gray-900 hover:bg-gray-300'
+              }`}
+            >
+              Audit Log
             </Link>
             <LogoutButton />
           </div>

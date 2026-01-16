@@ -6,6 +6,7 @@ import { Store } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
+import { logAuditClient } from '@/lib/utils/audit-client';
 
 export function StoreManagement() {
   const [stores, setStores] = useState<Store[]>([]);
@@ -37,12 +38,24 @@ export function StoreManagement() {
 
     try {
       if (editingStore) {
+        const oldValues = { name: editingStore.name };
+        const newValues = { name: storeName };
+
         const { error } = await supabase
           .from('stores')
           .update({ name: storeName, updated_at: new Date().toISOString() })
           .eq('id', editingStore.id);
 
         if (!error) {
+          // Log audit for store update
+          await logAuditClient(supabase, {
+            action: 'UPDATE',
+            entityType: 'store',
+            entityId: editingStore.id,
+            entityName: storeName,
+            storeId: editingStore.id,
+            changes: { before: oldValues, after: newValues },
+          });
           await fetchStores();
           closeModal();
         }
@@ -79,6 +92,15 @@ export function StoreManagement() {
           return;
         }
 
+        // Log audit for store creation
+        await logAuditClient(supabase, {
+          action: 'CREATE',
+          entityType: 'store',
+          entityId: newStore.id,
+          entityName: storeName,
+          storeId: newStore.id,
+        });
+
         await fetchStores();
         closeModal();
       }
@@ -89,7 +111,19 @@ export function StoreManagement() {
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure? This will delete all employees in this store.')) {
-      await supabase.from('stores').delete().eq('id', id);
+      const store = stores.find(s => s.id === id);
+      const { error } = await supabase.from('stores').delete().eq('id', id);
+      
+      if (!error && store) {
+        // Log audit for store deletion
+        await logAuditClient(supabase, {
+          action: 'DELETE',
+          entityType: 'store',
+          entityId: id,
+          entityName: store.name,
+          storeId: id,
+        });
+      }
       await fetchStores();
     }
   };

@@ -8,6 +8,7 @@ import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
 import { formatDate, formatDisplayDate, getNextDay, getPreviousDay } from '@/lib/utils/date';
 import { calculateHours, generateTimeOptions } from '@/lib/utils/time';
+import { logAuditClient } from '@/lib/utils/audit-client';
 
 interface DailyTimesheetProps {
   selectedStoreId: string;
@@ -149,6 +150,14 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
         if (!error && data) {
           setCommentId(data.id);
+          // Log audit for daily comment creation
+          await logAuditClient(supabase, {
+            action: 'CREATE',
+            entityType: 'daily_comment',
+            entityId: data.id,
+            storeId: selectedStoreId,
+            metadata: { date: currentDate },
+          });
         } else if (error) {
           console.error('Error inserting comment:', error);
         }
@@ -166,6 +175,13 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
     try {
       if (editingEntry) {
+        const oldValues = {
+          clock_in: editingEntry.clock_in,
+          clock_out: editingEntry.clock_out,
+          hours: editingEntry.hours,
+        };
+        const newValues = { clock_in: clockIn, clock_out: clockOut, hours };
+
         const { error } = await supabase
           .from('timesheet_entries')
           .update({
@@ -177,11 +193,22 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
           .eq('id', editingEntry.id);
 
         if (!error) {
+          // Log audit for timesheet entry update
+          const employee = employees.find(e => e.id === editingEntry.employee_id);
+          await logAuditClient(supabase, {
+            action: 'UPDATE',
+            entityType: 'timesheet_entry',
+            entityId: editingEntry.id,
+            entityName: employee ? `${employee.first_name} ${employee.last_name}` : undefined,
+            storeId: selectedStoreId,
+            changes: { before: oldValues, after: newValues },
+            metadata: { date: currentDate },
+          });
           await fetchEntries();
           closeModal();
         }
       } else {
-        const { error } = await supabase
+        const { data, error } = await supabase
           .from('timesheet_entries')
           .insert([{
             employee_id: selectedEmployeeId,
@@ -189,9 +216,20 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             clock_in: clockIn,
             clock_out: clockOut,
             hours,
-          }]);
+          }])
+          .select();
 
-        if (!error) {
+        if (!error && data) {
+          // Log audit for timesheet entry creation
+          const employee = employees.find(e => e.id === selectedEmployeeId);
+          await logAuditClient(supabase, {
+            action: 'CREATE',
+            entityType: 'timesheet_entry',
+            entityId: data[0].id,
+            entityName: employee ? `${employee.first_name} ${employee.last_name}` : undefined,
+            storeId: selectedStoreId,
+            metadata: { date: currentDate, clock_in: clockIn, clock_out: clockOut, hours },
+          });
           await fetchEntries();
           closeModal();
         }
@@ -203,7 +241,21 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
   const handleDelete = async (id: string) => {
     if (confirm('Are you sure you want to delete this entry?')) {
-      await supabase.from('timesheet_entries').delete().eq('id', id);
+      const entry = entries.find(e => e.id === id);
+      const { error } = await supabase.from('timesheet_entries').delete().eq('id', id);
+      
+      if (!error && entry) {
+        // Log audit for timesheet entry deletion
+        const employee = employees.find(e => e.id === entry.employee_id);
+        await logAuditClient(supabase, {
+          action: 'DELETE',
+          entityType: 'timesheet_entry',
+          entityId: id,
+          entityName: employee ? `${employee.first_name} ${employee.last_name}` : undefined,
+          storeId: selectedStoreId,
+          metadata: { date: entry.date, clock_in: entry.clock_in, clock_out: entry.clock_out },
+        });
+      }
       await fetchEntries();
     }
   };

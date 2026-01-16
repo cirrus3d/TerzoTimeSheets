@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Employee, TimesheetEntry, Store, DailyComment } from '@/types/database';
+import { Employee, TimesheetEntry, Store, DailyComment, User } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
 import { Modal } from '@/components/ui/Modal';
@@ -26,6 +26,8 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
   const [loading, setLoading] = useState(false);
   const [dailyComment, setDailyComment] = useState('');
   const [dailyEarnings, setDailyEarnings] = useState('');
+  const [responsibleUserId, setResponsibleUserId] = useState('');
+  const [adminUsers, setAdminUsers] = useState<User[]>([]);
   const [commentId, setCommentId] = useState<string | null>(null);
   const [isSavingComment, setIsSavingComment] = useState(false);
   const supabase = createClient();
@@ -33,6 +35,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
   useEffect(() => {
       fetchDailyComment();
+      fetchAdminUsers();
     if (selectedStoreId) {
       fetchEmployees();
       fetchEntries();
@@ -63,6 +66,34 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
       });
       
       setEmployees(filteredEmployees);
+    }
+  };
+
+  const fetchAdminUsers = async () => {
+    // Fetch all users with access to the current store
+    if (!selectedStoreId) return;
+
+    try {
+      const { data, error } = await supabase
+        .rpc('get_store_users', { p_store_id: selectedStoreId });
+
+      if (error) {
+        console.error('Error fetching users:', error.message, error);
+        return;
+      }
+
+      if (data) {
+        console.log('Raw user data from RPC:', data);
+        const mappedUsers = data.map((u: any) => ({ 
+          id: u.user_id, 
+          email: u.user_email,
+          display_name: u.display_name
+        }));
+        console.log('Mapped users:', mappedUsers);
+        setAdminUsers(mappedUsers);
+      }
+    } catch (err) {
+      console.error('Exception fetching users:', err);
     }
   };
 
@@ -108,10 +139,12 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
     if (!error && data) {
       setDailyComment(data.comment || '');
       setDailyEarnings(data.earnings?.toString() || '');
+      setResponsibleUserId(data.responsible_user_id || '');
       setCommentId(data.id);
     } else {
       setDailyComment('');
       setDailyEarnings('');
+      setResponsibleUserId('');
       setCommentId(null);
     }
   };
@@ -128,6 +161,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
           .update({
             comment: dailyComment || null,
             earnings: dailyEarnings ? parseFloat(dailyEarnings) : null,
+            responsible_user_id: responsibleUserId || null,
             updated_at: new Date().toISOString(),
           })
           .eq('id', commentId);
@@ -144,6 +178,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             date: currentDate,
             comment: dailyComment || null,
             earnings: dailyEarnings ? parseFloat(dailyEarnings) : null,
+            responsible_user_id: responsibleUserId || null,
           }])
           .select()
           .single();
@@ -453,6 +488,27 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
               onBlur={saveDailyComment}
               placeholder="0.00"
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+              disabled={isSavingComment}
+            />
+          </div>
+          
+          <div>
+            <label htmlFor="responsible-user" className="block text-sm font-medium text-gray-700 mb-2">
+              Responsible for Earnings
+            </label>
+            <Select
+              value={responsibleUserId}
+              onChange={(e) => {
+                setResponsibleUserId(e.target.value);
+                saveDailyComment();
+              }}
+              options={[
+                { value: '', label: 'Select a user' },
+                ...adminUsers.map((user) => ({
+                  value: user.id,
+                  label: user.display_name || user.email,
+                })),
+              ]}
               disabled={isSavingComment}
             />
           </div>

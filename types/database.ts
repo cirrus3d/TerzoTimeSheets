@@ -55,6 +55,20 @@ export interface DailyComment {
   date: string;
   comment: string | null;
   earnings: number | null;
+  responsible_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  display_name?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  display_name: string;
   created_at: string;
   updated_at: string;
 }

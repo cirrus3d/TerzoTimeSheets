@@ -78,7 +78,7 @@ export interface AuditLog {
   user_id: string;
   user_email: string;
   action: 'CREATE' | 'UPDATE' | 'DELETE';
-  entity_type: 'timesheet_entry' | 'employee' | 'store' | 'daily_comment';
+  entity_type: 'timesheet_entry' | 'employee' | 'store' | 'daily_comment' | 'daily_earnings' | 'responsible_user';
   entity_id: string;
   entity_name: string | null;
   store_id: string | null;

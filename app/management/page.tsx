@@ -33,6 +33,12 @@ export default async function ManagementPage() {
                 Reports
               </Link>
               <Link
+                href="/earnings"
+                className="px-4 py-2 rounded-lg font-medium transition-colors duration-200 bg-gray-200 text-gray-900 hover:bg-gray-300"
+              >
+                Earnings
+              </Link>
+              <Link
                 href="/management"
                 className="px-4 py-2 rounded-lg font-medium transition-colors duration-200 bg-blue-600 text-white hover:bg-blue-700"
               >

@@ -149,12 +149,109 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
     }
   };
 
+  const handleResponsibleUserChange = async (newResponsibleUserId: string) => {
+    if (!selectedStoreId) return;
+
+    setIsSavingComment(true);
+    try {
+      if (commentId) {
+        // Get the existing data to track changes
+        const { data: existingData } = await supabase
+          .from('daily_comments')
+          .select('*')
+          .eq('id', commentId)
+          .single();
+
+        // Update existing comment with new responsible user
+        const { error } = await supabase
+          .from('daily_comments')
+          .update({
+            responsible_user_id: newResponsibleUserId || null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', commentId);
+
+        if (!error && existingData) {
+          // Log audit for responsible user if changed
+          const oldResponsibleUserId = existingData.responsible_user_id;
+          const newResponsibleUserIdValue = newResponsibleUserId || null;
+          if (oldResponsibleUserId !== newResponsibleUserIdValue) {
+            const responsibleUser = adminUsers.find(u => u.id === newResponsibleUserIdValue);
+            await logAuditClient(supabase, {
+              action: 'UPDATE',
+              entityType: 'responsible_user',
+              entityId: commentId,
+              entityName: responsibleUser?.display_name || responsibleUser?.email || undefined,
+              storeId: selectedStoreId,
+              changes: { 
+                before: { responsible_user_id: oldResponsibleUserId }, 
+                after: { responsible_user_id: newResponsibleUserIdValue } 
+              },
+              metadata: { date: currentDate },
+            });
+          }
+        } else if (error) {
+          console.error('Error updating responsible user:', error);
+        }
+      } else {
+        // Insert new comment with responsible user
+        const { data, error } = await supabase
+          .from('daily_comments')
+          .insert([{
+            store_id: selectedStoreId,
+            date: currentDate,
+            comment: null,
+            earnings: null,
+            responsible_user_id: newResponsibleUserId || null,
+          }])
+          .select()
+          .single();
+
+        if (!error && data) {
+          setCommentId(data.id);
+          // Log audit for daily comment creation
+          await logAuditClient(supabase, {
+            action: 'CREATE',
+            entityType: 'daily_comment',
+            entityId: data.id,
+            storeId: selectedStoreId,
+            metadata: { date: currentDate },
+          });
+
+          // Log audit for responsible user if provided
+          if (newResponsibleUserId) {
+            const responsibleUser = adminUsers.find(u => u.id === newResponsibleUserId);
+            await logAuditClient(supabase, {
+              action: 'CREATE',
+              entityType: 'responsible_user',
+              entityId: data.id,
+              entityName: responsibleUser?.display_name || responsibleUser?.email || undefined,
+              storeId: selectedStoreId,
+              metadata: { date: currentDate },
+            });
+          }
+        } else if (error) {
+          console.error('Error inserting comment:', error);
+        }
+      }
+    } finally {
+      setIsSavingComment(false);
+    }
+  };
+
   const saveDailyComment = async () => {
     if (!selectedStoreId) return;
 
     setIsSavingComment(true);
     try {
       if (commentId) {
+        // Get the existing data to track changes
+        const { data: existingData } = await supabase
+          .from('daily_comments')
+          .select('*')
+          .eq('id', commentId)
+          .single();
+
         // Update existing comment
         const { error } = await supabase
           .from('daily_comments')
@@ -166,7 +263,43 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
           })
           .eq('id', commentId);
 
-        if (error) {
+        if (!error && existingData) {
+          // Log audit for daily earnings if changed
+          const oldEarnings = existingData.earnings;
+          const newEarnings = dailyEarnings ? parseFloat(dailyEarnings) : null;
+          if (oldEarnings !== newEarnings) {
+            await logAuditClient(supabase, {
+              action: 'UPDATE',
+              entityType: 'daily_earnings',
+              entityId: commentId,
+              storeId: selectedStoreId,
+              changes: { 
+                before: { earnings: oldEarnings }, 
+                after: { earnings: newEarnings } 
+              },
+              metadata: { date: currentDate },
+            });
+          }
+
+          // Log audit for responsible user if changed
+          const oldResponsibleUserId = existingData.responsible_user_id;
+          const newResponsibleUserId = responsibleUserId || null;
+          if (oldResponsibleUserId !== newResponsibleUserId) {
+            const responsibleUser = adminUsers.find(u => u.id === newResponsibleUserId);
+            await logAuditClient(supabase, {
+              action: 'UPDATE',
+              entityType: 'responsible_user',
+              entityId: commentId,
+              entityName: responsibleUser?.display_name || responsibleUser?.email || undefined,
+              storeId: selectedStoreId,
+              changes: { 
+                before: { responsible_user_id: oldResponsibleUserId }, 
+                after: { responsible_user_id: newResponsibleUserId } 
+              },
+              metadata: { date: currentDate },
+            });
+          }
+        } else if (error) {
           console.error('Error updating comment:', error);
         }
       } else {
@@ -193,6 +326,30 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             storeId: selectedStoreId,
             metadata: { date: currentDate },
           });
+
+          // Log audit for daily earnings if provided
+          if (dailyEarnings) {
+            await logAuditClient(supabase, {
+              action: 'CREATE',
+              entityType: 'daily_earnings',
+              entityId: data.id,
+              storeId: selectedStoreId,
+              metadata: { date: currentDate, earnings: parseFloat(dailyEarnings) },
+            });
+          }
+
+          // Log audit for responsible user if provided
+          if (responsibleUserId) {
+            const responsibleUser = adminUsers.find(u => u.id === responsibleUserId);
+            await logAuditClient(supabase, {
+              action: 'CREATE',
+              entityType: 'responsible_user',
+              entityId: data.id,
+              entityName: responsibleUser?.display_name || responsibleUser?.email || undefined,
+              storeId: selectedStoreId,
+              metadata: { date: currentDate },
+            });
+          }
         } else if (error) {
           console.error('Error inserting comment:', error);
         }
@@ -498,9 +655,10 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             </label>
             <Select
               value={responsibleUserId}
-              onChange={(e) => {
-                setResponsibleUserId(e.target.value);
-                saveDailyComment();
+              onChange={async (e) => {
+                const newValue = e.target.value;
+                setResponsibleUserId(newValue);
+                await handleResponsibleUserChange(newValue);
               }}
               options={[
                 { value: '', label: 'Select a user' },

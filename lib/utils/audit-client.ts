@@ -1,5 +1,5 @@
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE';
-export type AuditEntityType = 'timesheet_entry' | 'employee' | 'store' | 'daily_comment';
+export type AuditEntityType = 'timesheet_entry' | 'employee' | 'store' | 'daily_comment' | 'daily_earnings' | 'responsible_user';
 
 interface LogAuditParams {
   action: AuditAction;

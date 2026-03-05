@@ -391,7 +391,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             action: 'UPDATE',
             entityType: 'timesheet_entry',
             entityId: editingEntry.id,
-            entityName: employee ? `${employee.first_name} ${employee.last_name}` : undefined,
+            entityName: employee ? `${employee.last_name} ${employee.first_name}` : undefined,
             storeId: selectedStoreId,
             changes: { before: oldValues, after: newValues },
             metadata: { date: currentDate },
@@ -418,7 +418,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             action: 'CREATE',
             entityType: 'timesheet_entry',
             entityId: data[0].id,
-            entityName: employee ? `${employee.first_name} ${employee.last_name}` : undefined,
+            entityName: employee ? `${employee.last_name} ${employee.first_name}` : undefined,
             storeId: selectedStoreId,
             metadata: { date: currentDate, clock_in: clockIn, clock_out: clockOut, hours },
           });
@@ -443,7 +443,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
           action: 'DELETE',
           entityType: 'timesheet_entry',
           entityId: id,
-          entityName: employee ? `${employee.first_name} ${employee.last_name}` : undefined,
+          entityName: employee ? `${employee.last_name} ${employee.first_name}` : undefined,
           storeId: selectedStoreId,
           metadata: { date: entry.date, clock_in: entry.clock_in, clock_out: entry.clock_out },
         });
@@ -693,7 +693,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
                 options={employees.map((emp) => ({
                   value: emp.id,
-                  label: `${emp.first_name} ${emp.last_name}`,
+                  label: `${emp.last_name} ${emp.first_name}`,
                 }))}
                 placeholder="Select an employee"
                 required

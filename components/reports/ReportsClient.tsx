@@ -4,11 +4,12 @@ import { useState } from 'react';
 import { DashboardHeader } from '@/components/dashboard/DashboardHeader';
 import { WeeklyReport } from '@/components/reports/WeeklyReport';
 import { MonthlyReport } from '@/components/reports/MonthlyReport';
+import { MonthlyReportPerDay } from '@/components/reports/MonthlyReportPerDay';
 import { Button } from '@/components/ui/Button';
 
 export function ReportsClient() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'weekly' | 'monthly'>('weekly');
+  const [viewMode, setViewMode] = useState<'weekly' | 'monthly' | 'monthlyPerDay'>('weekly');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -28,7 +29,13 @@ export function ReportsClient() {
                 onClick={() => setViewMode('monthly')}
                 variant={viewMode === 'monthly' ? 'primary' : 'secondary'}
               >
-                Monthly
+                Monthly Totals
+              </Button>
+              <Button
+                onClick={() => setViewMode('monthlyPerDay')}
+                variant={viewMode === 'monthlyPerDay' ? 'primary' : 'secondary'}
+              >
+                Monthly Per Day
               </Button>
             </div>
           </div>
@@ -36,8 +43,10 @@ export function ReportsClient() {
 
         {viewMode === 'weekly' ? (
           <WeeklyReport selectedStoreId={selectedStoreId} />
-        ) : (
+        ) : viewMode === 'monthly' ? (
           <MonthlyReport selectedStoreId={selectedStoreId} />
+        ) : (
+          <MonthlyReportPerDay selectedStoreId={selectedStoreId} />
         )}
       </main>
     </div>

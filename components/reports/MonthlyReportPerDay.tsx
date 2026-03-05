@@ -5,14 +5,18 @@ import { createClient } from '@/lib/supabase/client';
 import { Employee, TimesheetEntry } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { formatDate } from '@/lib/utils/date';
-import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
-import { exportMonthlyReportToPDF, exportMonthlyReportToXLS, MonthlyReportData } from '@/lib/utils/export';
+import { startOfMonth, endOfMonth, addMonths, subMonths, eachDayOfInterval, format } from 'date-fns';
+import {
+  exportMonthlyPerDayReportToPDF,
+  exportMonthlyPerDayReportToXLS,
+  MonthlyPerDayReportData
+} from '@/lib/utils/export';
 
-interface MonthlyReportProps {
+interface MonthlyReportPerDayProps {
   selectedStoreId: string;
 }
 
-export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
+export function MonthlyReportPerDay({ selectedStoreId }: MonthlyReportPerDayProps) {
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [entries, setEntries] = useState<TimesheetEntry[]>([]);
@@ -21,6 +25,7 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
   const supabase = createClient();
 
   const monthEnd = endOfMonth(currentMonth);
+  const monthDays = eachDayOfInterval({ start: currentMonth, end: monthEnd });
 
   useEffect(() => {
     if (selectedStoreId) {
@@ -34,7 +39,6 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
     setLoading(true);
 
     try {
-      // Fetch store name
       const { data: storeData } = await supabase
         .from('stores')
         .select('name')
@@ -45,7 +49,6 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
         setStoreName(storeData.name);
       }
 
-      // Fetch employees
       const { data: employeesData } = await supabase
         .from('employees')
         .select('*, store:stores(*)')
@@ -53,7 +56,6 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
         .order('last_name', { ascending: true });
 
       if (employeesData) {
-        // Filter employees based on month dates
         const filteredEmployees = employeesData.filter(emp => {
           const wasHiredByMonthEnd = emp.hiring_date <= formatDate(monthEnd);
           const stillEmployedDuringMonth = !emp.firing_date || emp.firing_date >= formatDate(currentMonth);
@@ -62,7 +64,6 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
         setEmployees(filteredEmployees);
       }
 
-      // Fetch entries for the month
       const { data: entriesData } = await supabase
         .from('timesheet_entries')
         .select('*, employee:employees!inner(*, store:stores(*))')
@@ -78,26 +79,26 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
     }
   };
 
+  const getEmployeeHoursForDay = (employeeId: string, date: Date) => {
+    const entry = entries.find(e => e.employee_id === employeeId && e.date === formatDate(date));
+    return entry?.hours || 0;
+  };
+
   const getEmployeeMonthTotal = (employeeId: string) => {
     return entries
       .filter(e => e.employee_id === employeeId)
       .reduce((sum, e) => sum + e.hours, 0);
   };
 
-  const getEmployeeDaysWorked = (employeeId: string) => {
-    return new Set(
-      entries
-        .filter(e => e.employee_id === employeeId && e.hours > 0)
-        .map(e => e.date)
-    ).size;
+  const getDayTotal = (date: Date) => {
+    const dateStr = formatDate(date);
+    return entries
+      .filter(e => e.date === dateStr)
+      .reduce((sum, e) => sum + e.hours, 0);
   };
 
   const getMonthTotal = () => {
     return entries.reduce((sum, e) => sum + e.hours, 0);
-  };
-
-  const getTotalDaysWorked = () => {
-    return new Set(entries.filter(e => e.hours > 0).map(e => e.date)).size;
   };
 
   const goToPreviousMonth = () => {
@@ -113,39 +114,39 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
   };
 
   const handleExportPDF = async () => {
-    const reportData: MonthlyReportData = {
+    const reportData: MonthlyPerDayReportData = {
       storeName,
       monthYear: format(currentMonth, 'MMMM yyyy'),
       employees: employees.map(emp => ({
         name: `${emp.last_name} ${emp.first_name}`,
-        daysWorked: getEmployeeDaysWorked(emp.id),
-        totalHours: getEmployeeMonthTotal(emp.id),
-        avgHours: getEmployeeDaysWorked(emp.id) > 0 
-          ? getEmployeeMonthTotal(emp.id) / getEmployeeDaysWorked(emp.id) 
-          : 0
+        dailyHours: monthDays.map(day => getEmployeeHoursForDay(emp.id, day)),
+        total: getEmployeeMonthTotal(emp.id)
       })),
-      totalDaysWorked: getTotalDaysWorked(),
+      dayNames: monthDays.map(day =>
+        `${day.toLocaleDateString('en-US', { weekday: 'short' })} ${day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      ),
+      dailyTotals: monthDays.map(day => getDayTotal(day)),
       grandTotal: getMonthTotal()
     };
-    await exportMonthlyReportToPDF(reportData);
+    await exportMonthlyPerDayReportToPDF(reportData);
   };
 
   const handleExportXLS = async () => {
-    const reportData: MonthlyReportData = {
+    const reportData: MonthlyPerDayReportData = {
       storeName,
       monthYear: format(currentMonth, 'MMMM yyyy'),
       employees: employees.map(emp => ({
         name: `${emp.last_name} ${emp.first_name}`,
-        daysWorked: getEmployeeDaysWorked(emp.id),
-        totalHours: getEmployeeMonthTotal(emp.id),
-        avgHours: getEmployeeDaysWorked(emp.id) > 0 
-          ? getEmployeeMonthTotal(emp.id) / getEmployeeDaysWorked(emp.id) 
-          : 0
+        dailyHours: monthDays.map(day => getEmployeeHoursForDay(emp.id, day)),
+        total: getEmployeeMonthTotal(emp.id)
       })),
-      totalDaysWorked: getTotalDaysWorked(),
+      dayNames: monthDays.map(day =>
+        `${day.toLocaleDateString('en-US', { weekday: 'short' })} ${day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      ),
+      dailyTotals: monthDays.map(day => getDayTotal(day)),
       grandTotal: getMonthTotal()
     };
-    await exportMonthlyReportToXLS(reportData);
+    await exportMonthlyPerDayReportToXLS(reportData);
   };
 
   if (!selectedStoreId) {
@@ -176,15 +177,15 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
           </Button>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={handleExportPDF} 
+          <Button
+            onClick={handleExportPDF}
             variant="secondary"
             disabled={loading || employees.length === 0}
           >
             📄 Download PDF
           </Button>
-          <Button 
-            onClick={handleExportXLS} 
+          <Button
+            onClick={handleExportXLS}
             variant="secondary"
             disabled={loading || employees.length === 0}
           >
@@ -198,66 +199,63 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
       ) : employees.length === 0 ? (
         <p className="text-center text-gray-500 py-8">No employees found for this month.</p>
       ) : (
-        <>
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Employee
+        <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <table className="min-w-max divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10">
+                  Employee
+                </th>
+                {monthDays.map(day => (
+                  <th
+                    key={day.toISOString()}
+                    className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
+                  >
+                    {day.toLocaleDateString('en-US', { weekday: 'short' })}
+                    <br />
+                    {day.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                   </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Days Worked
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
-                    Total Hours
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Average Hours/Day
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {employees.map((employee) => {
-                  const totalHours = getEmployeeMonthTotal(employee.id);
-                  const daysWorked = getEmployeeDaysWorked(employee.id);
-                  const avgHours = daysWorked > 0 ? totalHours / daysWorked : 0;
-
-                  return (
-                    <tr key={employee.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {employee.last_name} {employee.first_name}
-                      </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-900">
-                        {daysWorked}
-                      </td>
-                      <td className="px-6 py-4 text-center text-sm font-semibold text-gray-900 bg-blue-50">
-                        {totalHours.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-center text-sm text-gray-900">
-                        {avgHours.toFixed(2)}
-                      </td>
-                    </tr>
-                  );
-                })}
-                <tr className="bg-gray-50 font-semibold">
-                  <td className="px-6 py-4 text-sm text-gray-900">
-                    Total
+                ))}
+                <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {employees.map(employee => (
+                <tr key={employee.id}>
+                  <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white z-10">
+                    {employee.last_name} {employee.first_name}
                   </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-900">
-                    {getTotalDaysWorked()}
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-900 bg-blue-100">
-                    {getMonthTotal().toFixed(2)}
-                  </td>
-                  <td className="px-6 py-4 text-center text-sm text-gray-900">
-                    -
+                  {monthDays.map(day => {
+                    const hours = getEmployeeHoursForDay(employee.id, day);
+                    return (
+                      <td key={day.toISOString()} className="px-4 py-3 text-center text-sm text-gray-900">
+                        {hours > 0 ? hours.toFixed(2) : '-'}
+                      </td>
+                    );
+                  })}
+                  <td className="px-4 py-3 text-center text-sm font-semibold text-gray-900 bg-blue-50">
+                    {getEmployeeMonthTotal(employee.id).toFixed(2)}
                   </td>
                 </tr>
-              </tbody>
-            </table>
-          </div>
-        </>
+              ))}
+              <tr className="bg-gray-50 font-semibold">
+                <td className="px-4 py-3 text-sm text-gray-900 sticky left-0 bg-gray-50 z-10">
+                  Daily Total
+                </td>
+                {monthDays.map(day => (
+                  <td key={day.toISOString()} className="px-4 py-3 text-center text-sm text-gray-900">
+                    {getDayTotal(day).toFixed(2)}
+                  </td>
+                ))}
+                <td className="px-4 py-3 text-center text-sm text-gray-900 bg-blue-100">
+                  {getMonthTotal().toFixed(2)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

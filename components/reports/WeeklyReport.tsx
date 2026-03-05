@@ -121,7 +121,7 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
       weekStart: formatDisplayDate(formatDate(currentWeekStart)),
       weekEnd: formatDisplayDate(formatDate(weekEnd)),
       employees: employees.map(emp => ({
-        name: `${emp.first_name} ${emp.last_name}`,
+        name: `${emp.last_name} ${emp.first_name}`,
         dailyHours: weekDays.map(day => getEmployeeHoursForDay(emp.id, day)),
         total: getEmployeeWeekTotal(emp.id)
       })),
@@ -140,7 +140,7 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
       weekStart: formatDisplayDate(formatDate(currentWeekStart)),
       weekEnd: formatDisplayDate(formatDate(weekEnd)),
       employees: employees.map(emp => ({
-        name: `${emp.first_name} ${emp.last_name}`,
+        name: `${emp.last_name} ${emp.first_name}`,
         dailyHours: weekDays.map(day => getEmployeeHoursForDay(emp.id, day)),
         total: getEmployeeWeekTotal(emp.id)
       })),
@@ -227,7 +227,7 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
                 {employees.map((employee) => (
                   <tr key={employee.id}>
                     <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
-                      {employee.first_name} {employee.last_name}
+                      {employee.last_name} {employee.first_name}
                     </td>
                     {weekDays.map((day) => {
                       const hours = getEmployeeHoursForDay(employee.id, day);

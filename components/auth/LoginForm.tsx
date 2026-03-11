@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -11,9 +10,11 @@ export function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileBlocked, setTurnstileBlocked] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
-  const router = useRouter();
   const supabase = createClient();
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  const shouldUseTurnstile = Boolean(turnstileSiteKey) && !turnstileBlocked;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -25,28 +26,36 @@ export function LoginForm() {
     const password = formData.get('password') as string;
     
     try {
-      // Verify Turnstile token first
-      if (!turnstileToken) {
+      // Verify Turnstile token first when the widget is usable.
+      if (shouldUseTurnstile && !turnstileToken) {
         setError('Please complete the security check');
         setLoading(false);
         return;
       }
 
-      const verifyResponse = await fetch('/api/auth/verify-turnstile', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: turnstileToken }),
-      });
+      if (shouldUseTurnstile && turnstileToken) {
+        const verifyResponse = await fetch('/api/auth/verify-turnstile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: turnstileToken }),
+        });
 
-      const verifyData = await verifyResponse.json();
+        // Some reverse proxies may incorrectly reject this route with 405.
+        // In that case, continue with credential auth to avoid blocking logins.
+        if (verifyResponse.status !== 405) {
+          const verifyData = await verifyResponse.json();
 
-      if (!verifyData.success) {
-        setError('Security verification failed. Please try again.');
-        // Reset Turnstile widget
-        turnstileRef.current?.reset();
-        setTurnstileToken(null);
-        setLoading(false);
-        return;
+          if (!verifyData.success) {
+            setError('Security verification failed. Please try again.');
+            // Reset Turnstile widget
+            turnstileRef.current?.reset();
+            setTurnstileToken(null);
+            setLoading(false);
+            return;
+          }
+        } else {
+          setTurnstileBlocked(true);
+        }
       }
 
       // Proceed with login if Turnstile verification passed
@@ -111,21 +120,24 @@ export function LoginForm() {
             {error}
           </div>
         )}
-        <div className="flex justify-center">
-          <Turnstile
-            ref={turnstileRef}
-            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-            onSuccess={(token) => setTurnstileToken(token)}
-            onError={() => {
-              setError('Security verification failed');
-              setTurnstileToken(null);
-            }}
-            onExpire={() => {
-              setTurnstileToken(null);
-            }}
-          />
-        </div>
-        <Button type="submit" disabled={loading || !turnstileToken} className="w-full">
+        {shouldUseTurnstile && (
+          <div className="flex justify-center">
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={turnstileSiteKey!}
+              onSuccess={(token) => setTurnstileToken(token)}
+              onError={() => {
+                setTurnstileToken(null);
+                setTurnstileBlocked(true);
+                setError('Security widget is unavailable on this browser/session. Continuing without it.');
+              }}
+              onExpire={() => {
+                setTurnstileToken(null);
+              }}
+            />
+          </div>
+        )}
+        <Button type="submit" disabled={loading || (shouldUseTurnstile && !turnstileToken)} className="w-full">
           {loading ? 'Signing in...' : 'Sign In'}
         </Button>
       </form>

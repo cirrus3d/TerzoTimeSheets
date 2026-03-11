@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createReadonlySessionToken, verifyReadonlyPasswordForStore } from '@/lib/auth/readonly';
+import { createReadonlySessionToken, toStoreSlug, verifyReadonlyPasswordForStore } from '@/lib/auth/readonly';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 const COOKIE_NAME = 'readonly_timesheets_session';
@@ -25,7 +25,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid store' }, { status: 400 });
     }
 
-    if (!verifyReadonlyPasswordForStore(store.id, store.name, password)) {
+    if (!verifyReadonlyPasswordForStore(store.id, store.name, toStoreSlug(store.name), password)) {
       return NextResponse.json({ error: 'Invalid password' }, { status: 401 });
     }
 

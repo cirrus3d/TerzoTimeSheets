@@ -10,16 +10,27 @@ interface StoreOption {
   name: string;
 }
 
-export function ReadonlyAccessForm() {
+interface ReadonlyAccessFormProps {
+  fixedStoreId?: string;
+  fixedStoreName?: string;
+}
+
+export function ReadonlyAccessForm({ fixedStoreId, fixedStoreName }: ReadonlyAccessFormProps) {
   const [stores, setStores] = useState<StoreOption[]>([]);
-  const [selectedStoreId, setSelectedStoreId] = useState('');
+  const [selectedStoreId, setSelectedStoreId] = useState(fixedStoreId || '');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    if (fixedStoreId) {
+      setSelectedStoreId(fixedStoreId);
+      return;
+    }
+
     fetchStores();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fixedStoreId]);
 
   const fetchStores = async () => {
     try {
@@ -71,22 +82,28 @@ export function ReadonlyAccessForm() {
   return (
     <div className="max-w-md w-full bg-white shadow-lg rounded-xl p-8">
       <h1 className="text-2xl font-bold text-gray-900 mb-2">Readonly Timesheets</h1>
-      <p className="text-gray-600 mb-6">Select a store and enter its password to view daily and weekly timesheets.</p>
+      <p className="text-gray-600 mb-6">
+        {fixedStoreName
+          ? `Enter the password for ${fixedStoreName}.`
+          : 'Select a store and enter its password to view daily and weekly timesheets.'}
+      </p>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="readonly-store" className="block text-sm font-medium text-gray-700 mb-1">
-            Store
-          </label>
-          <Select
-            value={selectedStoreId}
-            onChange={(event) => setSelectedStoreId(event.target.value)}
-            options={stores.map((store) => ({ value: store.id, label: store.name }))}
-            placeholder="Select a store"
-            required
-            disabled={loading}
-          />
-        </div>
+        {!fixedStoreId && (
+          <div>
+            <label htmlFor="readonly-store" className="block text-sm font-medium text-gray-700 mb-1">
+              Store
+            </label>
+            <Select
+              value={selectedStoreId}
+              onChange={(event) => setSelectedStoreId(event.target.value)}
+              options={stores.map((store) => ({ value: store.id, label: store.name }))}
+              placeholder="Select a store"
+              required
+              disabled={loading}
+            />
+          </div>
+        )}
 
         <div>
           <label htmlFor="readonly-password" className="block text-sm font-medium text-gray-700 mb-1">

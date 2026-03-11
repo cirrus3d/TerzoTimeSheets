@@ -21,6 +21,14 @@ function normalizeStoreKey(value: string) {
   return value.trim().toLowerCase();
 }
 
+export function toStoreSlug(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 function getStorePasswordMap(): StorePasswordMap {
   const raw = process.env.READONLY_STORE_PASSWORDS_JSON;
   if (!raw) {
@@ -51,15 +59,21 @@ export function verifyReadonlyPassword(password: string) {
   return timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
-export function verifyReadonlyPasswordForStore(storeId: string, storeName: string, password: string) {
+export function verifyReadonlyPasswordForStore(
+  storeId: string,
+  storeName: string,
+  storeSlug: string,
+  password: string
+) {
   const storeMap = getStorePasswordMap();
   const byStoreId = storeMap[storeId];
+  const byStoreSlug = storeMap[storeSlug];
 
   const storeNameKey = Object.keys(storeMap).find(
     (key) => normalizeStoreKey(key) === normalizeStoreKey(storeName)
   );
   const byStoreName = storeNameKey ? storeMap[storeNameKey] : undefined;
-  const expected = byStoreId || byStoreName;
+  const expected = byStoreId || byStoreSlug || byStoreName;
 
   // Backward compatibility fallback: single shared password.
   if (!expected) {

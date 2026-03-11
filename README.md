@@ -7,6 +7,7 @@ A modern Next.js application for managing employee timesheets for cafe-bars. Bui
 - **Authentication**: Secure login for administrators
 - **Readonly Timesheet Access**:
   - Separate password-protected page at `/readonly-timesheets`
+  - Optional direct store pages (for example `/teras`, `/belray`)
   - Password defined per store in environment variables
   - Read-only users can only view daily/weekly timesheets with store and employee filters
   - Read-only sessions are blocked from other areas (earnings, management, audit, admin APIs)
@@ -78,7 +79,7 @@ npm install
    NEXT_PUBLIC_SUPABASE_URL=your-project-url
    NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
    READONLY_TIMESHEET_PASSWORD=your-fallback-shared-readonly-password
-   READONLY_STORE_PASSWORDS_JSON={"Teras":"pass-for-teras","BelRay":"pass-for-belray"}
+   READONLY_STORE_PASSWORDS_JSON={"teras":"pass-for-teras","belray":"pass-for-belray"}
    READONLY_TIMESHEET_SECRET=your-random-long-secret
    SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
    ```
@@ -148,6 +149,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - Select store and enter that store's password
 - View employee-filtered `Daily` or `Weekly` timesheets for that store only
 - This mode is read-only and cannot access management, earnings, audit, or other app pages
+- You can also use store-specific routes like `/teras` and `/belray` for dedicated login screens
 
 ### Access Control
 - Users can only view and manage stores they are assigned to

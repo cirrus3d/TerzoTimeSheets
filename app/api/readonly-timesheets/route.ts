@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { endOfWeek, format, parseISO, startOfWeek } from 'date-fns';
+import { endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from 'date-fns';
 import { parseReadonlySessionToken } from '@/lib/auth/readonly';
 import { createAdminClient } from '@/lib/supabase/admin';
 
@@ -24,18 +24,6 @@ type EmployeeRow = {
 
 function unauthorized() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-}
-
-function isActiveOnDate(employee: EmployeeRow, date: string) {
-  const hired = employee.hiring_date <= date;
-  const notFired = !employee.firing_date || employee.firing_date > date;
-  return hired && notFired;
-}
-
-function isActiveDuringWeek(employee: EmployeeRow, weekStart: string, weekEnd: string) {
-  const hiredByWeekEnd = employee.hiring_date <= weekEnd;
-  const stillActiveDuringWeek = !employee.firing_date || employee.firing_date >= weekStart;
-  return hiredByWeekEnd && stillActiveDuringWeek;
 }
 
 export async function GET(request: NextRequest) {
@@ -64,6 +52,7 @@ export async function GET(request: NextRequest) {
       .from('employees')
       .select('id, first_name, last_name, hiring_date, firing_date')
       .eq('store_id', storeId)
+      .is('firing_date', null)
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
 
@@ -86,6 +75,7 @@ export async function GET(request: NextRequest) {
       .from('employees')
       .select('id, first_name, last_name, hiring_date, firing_date')
       .eq('store_id', storeId)
+      .is('firing_date', null)
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
 
@@ -93,10 +83,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: employeeError.message }, { status: 500 });
     }
 
-    const activeEmployees = (allEmployees ?? []).filter((employee) => isActiveOnDate(employee, date));
     const filteredEmployees = employeeId
-      ? activeEmployees.filter((employee) => employee.id === employeeId)
-      : activeEmployees;
+      ? (allEmployees ?? []).filter((employee) => employee.id === employeeId)
+      : (allEmployees ?? []);
 
     if (filteredEmployees.length === 0) {
       return NextResponse.json({ employees: [], entries: [], date });
@@ -137,6 +126,7 @@ export async function GET(request: NextRequest) {
       .from('employees')
       .select('id, first_name, last_name, hiring_date, firing_date')
       .eq('store_id', storeId)
+      .is('firing_date', null)
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
 
@@ -144,12 +134,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: employeeError.message }, { status: 500 });
     }
 
-    const activeEmployees = (allEmployees ?? []).filter((employee) =>
-      isActiveDuringWeek(employee, weekStart, weekEnd)
-    );
     const filteredEmployees = employeeId
-      ? activeEmployees.filter((employee) => employee.id === employeeId)
-      : activeEmployees;
+      ? (allEmployees ?? []).filter((employee) => employee.id === employeeId)
+      : (allEmployees ?? []);
 
     if (filteredEmployees.length === 0) {
       return NextResponse.json({ employees: [], entries: [], weekStart, weekEnd });
@@ -169,6 +156,58 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       weekStart,
       weekEnd,
+      employees: filteredEmployees,
+      entries: (entries ?? []) as TimesheetEntryRow[],
+    });
+  }
+
+  if (mode === 'monthly') {
+    const monthStartParam = request.nextUrl.searchParams.get('monthStart');
+    const employeeId = request.nextUrl.searchParams.get('employeeId');
+
+    if (!monthStartParam) {
+      return NextResponse.json({ error: 'Missing monthStart' }, { status: 400 });
+    }
+
+    const parsedMonthStart = startOfMonth(parseISO(monthStartParam));
+    const parsedMonthEnd = endOfMonth(parsedMonthStart);
+    const monthStart = format(parsedMonthStart, 'yyyy-MM-dd');
+    const monthEnd = format(parsedMonthEnd, 'yyyy-MM-dd');
+
+    const { data: allEmployees, error: employeeError } = await supabase
+      .from('employees')
+      .select('id, first_name, last_name, hiring_date, firing_date')
+      .eq('store_id', storeId)
+      .is('firing_date', null)
+      .order('last_name', { ascending: true })
+      .order('first_name', { ascending: true });
+
+    if (employeeError) {
+      return NextResponse.json({ error: employeeError.message }, { status: 500 });
+    }
+
+    const filteredEmployees = employeeId
+      ? (allEmployees ?? []).filter((employee) => employee.id === employeeId)
+      : (allEmployees ?? []);
+
+    if (filteredEmployees.length === 0) {
+      return NextResponse.json({ employees: [], entries: [], monthStart, monthEnd });
+    }
+
+    const { data: entries, error: entriesError } = await supabase
+      .from('timesheet_entries')
+      .select('id, employee_id, date, clock_in, clock_out, hours')
+      .gte('date', monthStart)
+      .lte('date', monthEnd)
+      .in('employee_id', filteredEmployees.map((employee) => employee.id));
+
+    if (entriesError) {
+      return NextResponse.json({ error: entriesError.message }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      monthStart,
+      monthEnd,
       employees: filteredEmployees,
       entries: (entries ?? []) as TimesheetEntryRow[],
     });

@@ -2,6 +2,8 @@ import { type NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
 
+const READONLY_COOKIE_NAME = 'readonly_timesheets_session';
+
 function getReadonlyStoreSlugs() {
   const raw = process.env.READONLY_STORE_PASSWORDS_JSON;
   if (!raw) {
@@ -26,7 +28,7 @@ function getReadonlyStoreSlugs() {
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const hasReadonlyCookie = Boolean(request.cookies.get('readonly_timesheets_session')?.value);
+  const hasReadonlyCookie = Boolean(request.cookies.get(READONLY_COOKIE_NAME)?.value);
 
   if (hasReadonlyCookie) {
     const slugs = getReadonlyStoreSlugs();
@@ -35,7 +37,6 @@ export async function middleware(request: NextRequest) {
       segments.length === 1 && slugs.includes(segments[0].toLowerCase());
 
     const isAllowedPath =
-      pathname === '/readonly-timesheets' ||
       isSingleSegmentStoreSlugPath ||
       pathname.startsWith('/api/readonly-timesheets') ||
       pathname.startsWith('/api/readonly-auth/stores') ||
@@ -47,7 +48,13 @@ export async function middleware(request: NextRequest) {
         return NextResponse.json({ error: 'Forbidden for readonly session' }, { status: 403 });
       }
 
-      return NextResponse.redirect(new URL('/readonly-timesheets', request.url));
+      if (slugs.length > 0) {
+        return NextResponse.redirect(new URL(`/${slugs[0]}`, request.url));
+      }
+
+      const response = NextResponse.redirect(new URL('/', request.url));
+      response.cookies.delete(READONLY_COOKIE_NAME);
+      return response;
     }
   }
 

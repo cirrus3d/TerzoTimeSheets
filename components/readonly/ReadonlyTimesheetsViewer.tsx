@@ -2,12 +2,16 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
+  addMonths,
   addDays,
+  endOfMonth,
   eachDayOfInterval,
   endOfWeek,
   format,
   parseISO,
+  startOfMonth,
   startOfWeek,
+  subMonths,
   subDays,
   subWeeks,
   addWeeks,
@@ -50,6 +54,13 @@ interface WeeklyResponse {
   entries: Entry[];
 }
 
+interface MonthlyResponse {
+  monthStart: string;
+  monthEnd: string;
+  employees: EmployeeOption[];
+  entries: Entry[];
+}
+
 interface OptionsResponse {
   store: StoreOption;
   employees: EmployeeOption[];
@@ -60,7 +71,7 @@ interface ReadonlyTimesheetsViewerProps {
 }
 
 export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerProps) {
-  const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
+  const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [storeName, setStoreName] = useState('');
   const [employees, setEmployees] = useState<EmployeeOption[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
@@ -69,9 +80,11 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
   const [weekStart, setWeekStart] = useState(
     format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   );
+  const [monthStart, setMonthStart] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
 
   const [dailyData, setDailyData] = useState<DailyResponse | null>(null);
   const [weeklyData, setWeeklyData] = useState<WeeklyResponse | null>(null);
+  const [monthlyData, setMonthlyData] = useState<MonthlyResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -93,10 +106,12 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
   useEffect(() => {
     if (viewMode === 'daily') {
       fetchDaily();
-    } else {
+    } else if (viewMode === 'weekly') {
       fetchWeekly();
+    } else {
+      fetchMonthly();
     }
-  }, [selectedEmployeeId, date, weekStart, viewMode]);
+  }, [selectedEmployeeId, date, weekStart, monthStart, viewMode]);
 
   const fetchOptions = async () => {
     try {
@@ -197,6 +212,42 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
     }
   };
 
+  const fetchMonthly = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      const query = new URLSearchParams({
+        mode: 'monthly',
+        monthStart,
+      });
+
+      if (selectedEmployeeId) {
+        query.set('employeeId', selectedEmployeeId);
+      }
+
+      const response = await fetch(`/api/readonly-timesheets?${query.toString()}`, {
+        cache: 'no-store',
+      });
+
+      if (response.status === 401) {
+        window.location.reload();
+        return;
+      }
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setError(data?.error || 'Unable to load monthly timesheet');
+        return;
+      }
+
+      setMonthlyData(data as MonthlyResponse);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const dailyTotalHours = useMemo(() => {
     return (dailyData?.entries || []).reduce((sum, entry) => sum + entry.hours, 0);
   }, [dailyData]);
@@ -234,6 +285,39 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
 
   const weeklyGrandTotal = (weeklyData?.entries || []).reduce((sum, entry) => sum + entry.hours, 0);
 
+  const monthDays = useMemo(() => {
+    const start = parseISO(monthStart);
+    const end = endOfMonth(start);
+    return eachDayOfInterval({ start, end });
+  }, [monthStart]);
+
+  const monthlyHoursByEmployeeAndDay = useMemo(() => {
+    const map: Record<string, number> = {};
+
+    for (const entry of monthlyData?.entries || []) {
+      const key = `${entry.employee_id}_${entry.date}`;
+      map[key] = (map[key] || 0) + entry.hours;
+    }
+
+    return map;
+  }, [monthlyData]);
+
+  const monthlyEmployeeTotal = (employeeId: string) => {
+    return monthDays.reduce((sum, day) => {
+      const dayStr = format(day, 'yyyy-MM-dd');
+      return sum + (monthlyHoursByEmployeeAndDay[`${employeeId}_${dayStr}`] || 0);
+    }, 0);
+  };
+
+  const monthlyDayTotal = (day: Date) => {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    return (monthlyData?.employees || []).reduce((sum, employee) => {
+      return sum + (monthlyHoursByEmployeeAndDay[`${employee.id}_${dayStr}`] || 0);
+    }, 0);
+  };
+
+  const monthlyGrandTotal = (monthlyData?.entries || []).reduce((sum, entry) => sum + entry.hours, 0);
+
   const onPreviousDate = () => setDate(format(subDays(parseISO(date), 1), 'yyyy-MM-dd'));
   const onNextDate = () => setDate(format(addDays(parseISO(date), 1), 'yyyy-MM-dd'));
 
@@ -241,6 +325,10 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
     setWeekStart(format(startOfWeek(subWeeks(parseISO(weekStart), 1), { weekStartsOn: 1 }), 'yyyy-MM-dd'));
   const onNextWeek = () =>
     setWeekStart(format(startOfWeek(addWeeks(parseISO(weekStart), 1), { weekStartsOn: 1 }), 'yyyy-MM-dd'));
+  const onPreviousMonth = () =>
+    setMonthStart(format(startOfMonth(subMonths(parseISO(monthStart), 1)), 'yyyy-MM-dd'));
+  const onNextMonth = () =>
+    setMonthStart(format(startOfMonth(addMonths(parseISO(monthStart), 1)), 'yyyy-MM-dd'));
 
   const handleLogout = async () => {
     await fetch('/api/readonly-auth/logout', { method: 'POST' });
@@ -291,6 +379,13 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
               >
                 Weekly
               </Button>
+              <Button
+                onClick={() => setViewMode('monthly')}
+                variant={viewMode === 'monthly' ? 'primary' : 'secondary'}
+                className="flex-1"
+              >
+                Monthly
+              </Button>
             </div>
           </div>
 
@@ -305,7 +400,7 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
               </>
-            ) : (
+            ) : viewMode === 'weekly' ? (
               <>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Week Start</label>
                 <input
@@ -315,6 +410,18 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
                     setWeekStart(
                       format(startOfWeek(parseISO(event.target.value), { weekStartsOn: 1 }), 'yyyy-MM-dd')
                     )
+                  }
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                />
+              </>
+            ) : (
+              <>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                <input
+                  type="month"
+                  value={format(parseISO(monthStart), 'yyyy-MM')}
+                  onChange={(event) =>
+                    setMonthStart(format(startOfMonth(new Date(`${event.target.value}-01T00:00:00`)), 'yyyy-MM-dd'))
                   }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
                 />
@@ -341,6 +448,19 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
               Current Week
             </Button>
             <Button onClick={onNextWeek} variant="secondary">Next Week</Button>
+          </div>
+        )}
+
+        {viewMode === 'monthly' && (
+          <div className="flex justify-center gap-3">
+            <Button onClick={onPreviousMonth} variant="secondary">Previous Month</Button>
+            <Button
+              onClick={() => setMonthStart(format(startOfMonth(new Date()), 'yyyy-MM-dd'))}
+              variant="secondary"
+            >
+              Current Month
+            </Button>
+            <Button onClick={onNextMonth} variant="secondary">Next Month</Button>
           </div>
         )}
 
@@ -428,6 +548,61 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
                     </td>
                   ))}
                   <td className="px-4 py-3 text-center text-sm text-gray-900 bg-blue-100">{weeklyGrandTotal.toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!loading && viewMode === 'monthly' && monthlyData && (
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
+            <table className="min-w-max divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Employee
+                  </th>
+                  {monthDays.map((day) => (
+                    <th key={day.toISOString()} className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      {format(day, 'EEE')}<br />{format(day, 'MMM d')}
+                    </th>
+                  ))}
+                  <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider bg-blue-50">
+                    Total
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {monthlyData.employees.map((employee) => (
+                  <tr key={employee.id}>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {employee.last_name} {employee.first_name}
+                    </td>
+                    {monthDays.map((day) => {
+                      const dayStr = format(day, 'yyyy-MM-dd');
+                      const hours = monthlyHoursByEmployeeAndDay[`${employee.id}_${dayStr}`] || 0;
+
+                      return (
+                        <td key={day.toISOString()} className="px-4 py-3 text-center text-sm text-gray-900">
+                          {hours > 0 ? hours.toFixed(2) : '-'}
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-3 text-center text-sm font-semibold text-gray-900 bg-blue-50">
+                      {monthlyEmployeeTotal(employee.id).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 font-semibold">
+                  <td className="px-4 py-3 text-sm text-gray-900">Daily Total</td>
+                  {monthDays.map((day) => (
+                    <td key={day.toISOString()} className="px-4 py-3 text-center text-sm text-gray-900">
+                      {monthlyDayTotal(day).toFixed(2)}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3 text-center text-sm text-gray-900 bg-blue-100">
+                    {monthlyGrandTotal.toFixed(2)}
+                  </td>
                 </tr>
               </tbody>
             </table>

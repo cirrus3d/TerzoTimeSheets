@@ -82,7 +82,7 @@ export interface AuditLog {
   entity_id: string;
   entity_name: string | null;
   store_id: string | null;
-  changes: Record<string, any> | null;
-  metadata: Record<string, any> | null;
+  changes: Record<string, unknown> | null;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }

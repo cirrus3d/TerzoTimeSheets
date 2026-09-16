@@ -23,13 +23,6 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
   const weekEnd = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
   const weekDays = eachDayOfInterval({ start: currentWeekStart, end: weekEnd });
 
-  useEffect(() => {
-    if (selectedStoreId) {
-      fetchData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStoreId, currentWeekStart]);
-
   const fetchData = async () => {
     if (!selectedStoreId) return;
     setLoading(true);
@@ -78,6 +71,15 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (selectedStoreId) {
+      // fetchData is async; its setState calls run after an await, not synchronously in the effect body
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStoreId, currentWeekStart]);
 
   const getEmployeeHoursForDay = (employeeId: string, date: Date) => {
     const entry = entries.find(

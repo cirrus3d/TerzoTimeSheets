@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { Employee, TimesheetEntry, Store, DailyComment, User } from '@/types/database';
+import { Employee, TimesheetEntry, DailyComment, User } from '@/types/database';
 import { Button } from '@/components/ui/Button';
 import { Select } from '@/components/ui/Select';
+import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
 import { formatDate, formatDisplayDate, getNextDay, getPreviousDay } from '@/lib/utils/date';
-import { calculateHours, generateTimeOptions } from '@/lib/utils/time';
+import { calculateHours } from '@/lib/utils/time';
 import { logAuditClient } from '@/lib/utils/audit-client';
 
 interface DailyTimesheetProps {
@@ -31,17 +32,6 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
   const [commentId, setCommentId] = useState<string | null>(null);
   const [isSavingComment, setIsSavingComment] = useState(false);
   const supabase = createClient();
-  const timeOptions = generateTimeOptions();
-
-  useEffect(() => {
-      fetchDailyComment();
-      fetchAdminUsers();
-    if (selectedStoreId) {
-      fetchEmployees();
-      fetchEntries();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStoreId, currentDate]);
 
   const fetchEmployees = async () => {
     if (!selectedStoreId) return;
@@ -84,8 +74,8 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
       if (data) {
         console.log('Raw user data from RPC:', data);
-        const mappedUsers = data.map((u: any) => ({ 
-          id: u.user_id, 
+        const mappedUsers = (data as { user_id: string; user_email: string; display_name?: string }[]).map((u) => ({
+          id: u.user_id,
           email: u.user_email,
           display_name: u.display_name
         }));
@@ -148,6 +138,19 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
       setCommentId(null);
     }
   };
+
+  useEffect(() => {
+      // These fetch* helpers are async; their setState calls happen after
+      // their network requests resolve, not synchronously within this effect.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchDailyComment();
+      fetchAdminUsers();
+    if (selectedStoreId) {
+      fetchEmployees();
+      fetchEntries();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStoreId, currentDate]);
 
   const handleResponsibleUserChange = async (newResponsibleUserId: string) => {
     if (!selectedStoreId) return;
@@ -456,8 +459,8 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
     if (entry) {
       setEditingEntry(entry);
       setSelectedEmployeeId(entry.employee_id);
-      setClockIn(entry.clock_in);
-      setClockOut(entry.clock_out);
+      setClockIn(entry.clock_in.slice(0, 5));
+      setClockOut(entry.clock_out.slice(0, 5));
     } else {
       setEditingEntry(null);
       setSelectedEmployeeId('');
@@ -503,15 +506,15 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
     <div>
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-2xl font-bold text-gray-900">Daily Timesheet</h2>
-          <Button onClick={() => openModal()} disabled={!selectedStoreId}>Add Entry</Button>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Daily Timesheet</h2>
+          <Button onClick={() => openModal()} disabled={!selectedStoreId} className="shrink-0">Add Entry</Button>
         </div>
 
-        <div className="flex items-center justify-center gap-4 mb-4">
-          <Button onClick={goToPreviousDay} variant="secondary">
-            ← Previous
+        <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4">
+          <Button onClick={goToPreviousDay} variant="secondary" className="order-1">
+            ‹ <span className="hidden sm:inline">Previous</span>
           </Button>
-          <div className="text-center flex flex-col items-center gap-2">
+          <div className="order-3 sm:order-2 w-full sm:w-auto text-center flex flex-col items-center gap-2">
             <p className="text-lg font-semibold text-gray-900">
               {formatDisplayDate(currentDate)}
             </p>
@@ -520,39 +523,70 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
                 type="date"
                 value={currentDate}
                 onChange={handleDateChange}
-                className="px-3 py-1 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
+                className="px-3 py-1 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-gray-900"
               />
               <Button onClick={goToToday} variant="secondary" className="text-sm">
                 Today
               </Button>
             </div>
           </div>
-          <Button onClick={goToNextDay} variant="secondary">
-            Next →
+          <Button onClick={goToNextDay} variant="secondary" className="order-2 sm:order-3">
+            <span className="hidden sm:inline">Next</span> ›
           </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-x-auto">
+      <ul className="md:hidden space-y-3">
+        {employees.map((employee) => {
+          const entry = entries.find(e => e.employee_id === employee.id);
+          return (
+            <li key={employee.id} className="bg-white rounded-lg shadow p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{employee.last_name} {employee.first_name}</p>
+                  {entry ? (
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      {entry.clock_in.slice(0, 5)} – {entry.clock_out.slice(0, 5)}
+                      <span className="mx-1.5 text-gray-300">·</span>
+                      <span className="font-semibold text-gray-900">{entry.hours.toFixed(2)} h</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-400 mt-0.5">No entry</p>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 flex gap-2">
+                {entry ? (
+                  <>
+                    <Button onClick={() => openModal(entry)} variant="secondary" className="flex-1">Edit</Button>
+                    <Button onClick={() => handleDelete(entry.id)} variant="danger" className="flex-1">Delete</Button>
+                  </>
+                ) : (
+                  <Button onClick={() => openModalForEmployee(employee.id)} variant="secondary" className="w-full">Add Entry</Button>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="hidden md:block bg-white rounded-lg shadow overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Employee
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Store
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Clock In
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Clock Out
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Hours
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
               </th>
             </tr>
@@ -562,22 +596,19 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
               const entry = entries.find(e => e.employee_id === employee.id);
               return (
                 <tr key={employee.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {employee.last_name} {employee.first_name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {employee.store?.name || 'N/A'}
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {entry ? entry.clock_in.slice(0, 5) : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {entry?.clock_in || '-'}
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {entry ? entry.clock_out.slice(0, 5) : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {entry?.clock_out || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
+                  <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-semibold">
                     {entry ? entry.hours.toFixed(2) : '-'}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <div className="flex gap-2 justify-end">
                       {entry ? (
                         <>
@@ -638,6 +669,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             <input
               id="daily-earnings"
               type="number"
+              inputMode="decimal"
               step="0.01"
               min="0"
               value={dailyEarnings}
@@ -698,6 +730,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
                 placeholder="Select an employee"
                 required
                 disabled={loading}
+                className="text-base"
               />
             </div>
           )}
@@ -705,43 +738,39 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Clock In
             </label>
-            <Select
+            <Input
+              type="time"
               value={clockIn}
               onChange={(e) => setClockIn(e.target.value)}
-              options={timeOptions.map((time) => ({
-                value: time,
-                label: time,
-              }))}
               required
               disabled={loading}
+              className="text-base"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Clock Out
             </label>
-            <Select
+            <Input
+              type="time"
               value={clockOut}
               onChange={(e) => setClockOut(e.target.value)}
-              options={timeOptions.map((time) => ({
-                value: time,
-                label: time,
-              }))}
               required
               disabled={loading}
+              className="text-base"
             />
           </div>
           <div className="p-3 bg-blue-50 rounded-lg">
             <p className="text-sm text-gray-700">
               <span className="font-semibold">Hours:</span>{' '}
-              {calculateHours(clockIn, clockOut).toFixed(2)}
+              {clockIn && clockOut ? calculateHours(clockIn, clockOut).toFixed(2) : '-'}
             </p>
           </div>
-          <div className="flex gap-2 justify-end">
-            <Button type="button" onClick={closeModal} variant="secondary" disabled={loading}>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" onClick={closeModal} variant="secondary" disabled={loading} className="w-full sm:w-auto">
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="w-full sm:w-auto">
               {loading ? 'Saving...' : 'Save'}
             </Button>
           </div>

@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { AuditLog, Store } from '@/types/database';
 import { Select } from '@/components/ui/Select';
-import { formatDisplayDate } from '@/lib/utils/date';
 
 export function AuditLogViewer() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
@@ -17,14 +16,6 @@ export function AuditLogViewer() {
   const [totalLogs, setTotalLogs] = useState(0);
   const logsPerPage = 50;
   const supabase = createClient();
-
-  useEffect(() => {
-    fetchStores();
-  }, []);
-
-  useEffect(() => {
-    fetchLogs();
-  }, [selectedStoreId, selectedEntityType, selectedAction, currentPage]);
 
   const fetchStores = async () => {
     const { data, error } = await supabase
@@ -82,6 +73,18 @@ export function AuditLogViewer() {
     }
   };
 
+  useEffect(() => {
+    // fetchStores is async; its setState calls run after an await, not synchronously in the effect body
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchStores();
+  }, []);
+
+  useEffect(() => {
+    // fetchLogs is async; its setState calls run after an await, not synchronously in the effect body
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchLogs();
+  }, [selectedStoreId, selectedEntityType, selectedAction, currentPage]);
+
   const getActionColor = (action: string) => {
     switch (action) {
       case 'CREATE':
@@ -110,7 +113,7 @@ export function AuditLogViewer() {
     }
   };
 
-  const formatChanges = (changes: Record<string, any> | null) => {
+  const formatChanges = (changes: Record<string, unknown> | null) => {
     if (!changes) return null;
 
     return (
@@ -289,9 +292,9 @@ export function AuditLogViewer() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {log.entity_name || '-'}
-                      {log.metadata && log.metadata.date && (
+                      {log.metadata && log.metadata.date != null && (
                         <div className="text-xs text-gray-500">
-                          Date: {log.metadata.date}
+                          Date: {String(log.metadata.date)}
                         </div>
                       )}
                     </td>

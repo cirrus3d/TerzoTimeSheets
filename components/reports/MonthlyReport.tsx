@@ -22,13 +22,6 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
 
   const monthEnd = endOfMonth(currentMonth);
 
-  useEffect(() => {
-    if (selectedStoreId) {
-      fetchData();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStoreId, currentMonth]);
-
   const fetchData = async () => {
     if (!selectedStoreId) return;
     setLoading(true);
@@ -77,6 +70,15 @@ export function MonthlyReport({ selectedStoreId }: MonthlyReportProps) {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (selectedStoreId) {
+      // fetchData is async; its setState calls run after an await, not synchronously in the effect body
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStoreId, currentMonth]);
 
   const getEmployeeMonthTotal = (employeeId: string) => {
     return entries

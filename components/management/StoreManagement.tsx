@@ -17,11 +17,6 @@ export function StoreManagement() {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
-  useEffect(() => {
-    fetchStores();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const fetchStores = async () => {
     const { data, error } = await supabase
       .from('stores')
@@ -32,6 +27,13 @@ export function StoreManagement() {
       setStores(data);
     }
   };
+
+  useEffect(() => {
+    // fetchStores is async; its setState calls run after an await, not synchronously in the effect body
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchStores();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

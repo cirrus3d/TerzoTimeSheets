@@ -99,20 +99,6 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
     [employees]
   );
 
-  useEffect(() => {
-    fetchOptions();
-  }, []);
-
-  useEffect(() => {
-    if (viewMode === 'daily') {
-      fetchDaily();
-    } else if (viewMode === 'weekly') {
-      fetchWeekly();
-    } else {
-      fetchMonthly();
-    }
-  }, [selectedEmployeeId, date, weekStart, monthStart, viewMode]);
-
   const fetchOptions = async () => {
     try {
       const query = new URLSearchParams({ mode: 'options' });
@@ -247,6 +233,24 @@ export function ReadonlyTimesheetsViewer({ storeId }: ReadonlyTimesheetsViewerPr
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // fetchOptions is async; its setState calls run after an await, not synchronously in the effect body
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchOptions();
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === 'daily') {
+      // fetchDaily is async; its setState calls run after an await, not synchronously in the effect body
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchDaily();
+    } else if (viewMode === 'weekly') {
+      fetchWeekly();
+    } else {
+      fetchMonthly();
+    }
+  }, [selectedEmployeeId, date, weekStart, monthStart, viewMode]);
 
   const dailyTotalHours = useMemo(() => {
     return (dailyData?.entries || []).reduce((sum, entry) => sum + entry.hours, 0);

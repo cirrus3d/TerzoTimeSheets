@@ -24,13 +24,6 @@ export function EarningsClient() {
   const [storeName, setStoreName] = useState<string>('');
   const supabase = createClient();
 
-  useEffect(() => {
-    if (selectedStoreId) {
-      fetchEarnings();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStoreId]);
-
   const fetchEarnings = async () => {
     if (!selectedStoreId) return;
     setLoading(true);
@@ -67,7 +60,7 @@ export function EarningsClient() {
       )];
 
       // Fetch user profiles for display names
-      let userProfiles: Record<string, string> = {};
+      const userProfiles: Record<string, string> = {};
       if (userIds.length > 0) {
         const { data: profilesData } = await supabase
           .from('user_profiles')
@@ -114,6 +107,15 @@ export function EarningsClient() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (selectedStoreId) {
+      // fetchEarnings is async; its setState calls run after an await, not synchronously in the effect body
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      fetchEarnings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedStoreId]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('el-GR', {

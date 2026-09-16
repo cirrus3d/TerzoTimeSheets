@@ -1,3 +1,5 @@
+import type { SupabaseClient } from '@supabase/supabase-js';
+
 export type AuditAction = 'CREATE' | 'UPDATE' | 'DELETE';
 export type AuditEntityType = 'timesheet_entry' | 'employee' | 'store' | 'daily_comment' | 'daily_earnings' | 'responsible_user';
 
@@ -7,8 +9,8 @@ interface LogAuditParams {
   entityId: string;
   entityName?: string;
   storeId?: string;
-  changes?: Record<string, any>;
-  metadata?: Record<string, any>;
+  changes?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -16,7 +18,7 @@ interface LogAuditParams {
  * Call this from client components to log changes
  */
 export async function logAuditClient(
-  supabase: any,
+  supabase: SupabaseClient,
   params: LogAuditParams
 ): Promise<void> {
   try {

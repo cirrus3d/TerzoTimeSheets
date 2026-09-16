@@ -22,16 +22,6 @@ export function ReadonlyAccessForm({ fixedStoreId, fixedStoreName }: ReadonlyAcc
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (fixedStoreId) {
-      setSelectedStoreId(fixedStoreId);
-      return;
-    }
-
-    fetchStores();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fixedStoreId]);
-
   const fetchStores = async () => {
     try {
       const response = await fetch('/api/readonly-auth/stores', { cache: 'no-store' });
@@ -50,6 +40,18 @@ export function ReadonlyAccessForm({ fixedStoreId, fixedStoreName }: ReadonlyAcc
       setError('Unable to load stores');
     }
   };
+
+  useEffect(() => {
+    // selectedStoreId is already initialized from fixedStoreId (see useState above),
+    // so when a fixed store is provided we only need to skip the stores fetch.
+    if (fixedStoreId) {
+      return;
+    }
+
+    // fetchStores is async; its setState calls run after an await, not synchronously in the effect body
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchStores();
+  }, [fixedStoreId]);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -7,37 +7,35 @@ import { MonthlyReport } from '@/components/reports/MonthlyReport';
 import { MonthlyReportPerDay } from '@/components/reports/MonthlyReportPerDay';
 import { Button } from '@/components/ui/Button';
 
+type ViewMode = 'weekly' | 'monthly' | 'monthlyPerDay';
+
 export function ReportsClient() {
   const [selectedStoreId, setSelectedStoreId] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'weekly' | 'monthly' | 'monthlyPerDay'>('weekly');
+  const [viewMode, setViewMode] = useState<ViewMode>('weekly');
+
+  const viewModes: { key: ViewMode; label: string }[] = [
+    { key: 'weekly', label: 'Weekly' },
+    { key: 'monthly', label: 'Monthly Totals' },
+    { key: 'monthlyPerDay', label: 'Monthly Per Day' },
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
       <DashboardHeader onStoreChange={setSelectedStoreId} currentPage="reports" />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">Reports</h2>
-            <div className="flex gap-2">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Reports</h2>
+          <div className="grid grid-cols-3 gap-2 sm:flex">
+            {viewModes.map((mode) => (
               <Button
-                onClick={() => setViewMode('weekly')}
-                variant={viewMode === 'weekly' ? 'primary' : 'secondary'}
+                key={mode.key}
+                onClick={() => setViewMode(mode.key)}
+                variant={viewMode === mode.key ? 'primary' : 'secondary'}
+                className="px-2 text-sm sm:px-4 sm:text-base"
               >
-                Weekly
+                {mode.label}
               </Button>
-              <Button
-                onClick={() => setViewMode('monthly')}
-                variant={viewMode === 'monthly' ? 'primary' : 'secondary'}
-              >
-                Monthly Totals
-              </Button>
-              <Button
-                onClick={() => setViewMode('monthlyPerDay')}
-                variant={viewMode === 'monthlyPerDay' ? 'primary' : 'secondary'}
-              >
-                Monthly Per Day
-              </Button>
-            </div>
+            ))}
           </div>
         </div>
 

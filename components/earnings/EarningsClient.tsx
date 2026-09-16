@@ -144,8 +144,8 @@ export function EarningsClient() {
       <DashboardHeader onStoreChange={setSelectedStoreId} currentPage="earnings" />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">
-            All-Time Earnings - {storeName}
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
+            All-Time Earnings{storeName ? ` - ${storeName}` : ''}
           </h2>
           <p className="text-gray-600 mt-1">
             Total earnings recorded per responsible user
@@ -159,14 +159,14 @@ export function EarningsClient() {
             No earnings recorded for this store yet.
           </p>
         ) : (
-          <div className="bg-white rounded-lg shadow overflow-hidden">
+          <div className="bg-white rounded-lg shadow overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Responsible User
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 sm:px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Total Earnings
                   </th>
                 </tr>
@@ -174,17 +174,17 @@ export function EarningsClient() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {userEarnings.map((user) => (
                   <tr key={user.userId}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-gray-900">
                       {user.displayName}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-semibold">
+                    <td className="px-4 sm:px-6 py-4 text-sm text-gray-900 text-right font-semibold">
                       {formatCurrency(user.totalEarnings)}
                     </td>
                   </tr>
                 ))}
                 {unassignedEarnings > 0 && (
                   <tr className="bg-yellow-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-yellow-800">
+                    <td className="px-4 sm:px-6 py-4 text-sm font-medium text-yellow-800">
                       <span className="flex items-center gap-2">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -192,16 +192,16 @@ export function EarningsClient() {
                         Unassigned (No user selected)
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-yellow-800 text-right font-semibold">
+                    <td className="px-4 sm:px-6 py-4 text-sm text-yellow-800 text-right font-semibold">
                       {formatCurrency(unassignedEarnings)}
                     </td>
                   </tr>
                 )}
                 <tr className="bg-blue-50 font-bold">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-900">
+                  <td className="px-4 sm:px-6 py-4 text-sm text-blue-900">
                     Grand Total
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-900 text-right">
+                  <td className="px-4 sm:px-6 py-4 text-sm text-blue-900 text-right">
                     {formatCurrency(grandTotal)}
                   </td>
                 </tr>

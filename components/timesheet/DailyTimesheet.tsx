@@ -512,7 +512,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
 
         <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4">
           <Button onClick={goToPreviousDay} variant="secondary" className="order-1">
-            ‹ <span className="hidden sm:inline">Previous</span>
+            ‹ <span className="sr-only sm:not-sr-only">Previous</span>
           </Button>
           <div className="order-3 sm:order-2 w-full sm:w-auto text-center flex flex-col items-center gap-2">
             <p className="text-lg font-semibold text-gray-900">
@@ -531,7 +531,7 @@ export function DailyTimesheet({ selectedStoreId }: DailyTimesheetProps) {
             </div>
           </div>
           <Button onClick={goToNextDay} variant="secondary" className="order-2 sm:order-3">
-            <span className="hidden sm:inline">Next</span> ›
+            <span className="sr-only sm:not-sr-only">Next</span> ›
           </Button>
         </div>
       </div>

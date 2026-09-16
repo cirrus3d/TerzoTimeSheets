@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { Employee, TimesheetEntry } from '@/types/database';
-import { Button } from '@/components/ui/Button';
+import { ReportToolbar } from '@/components/reports/ReportToolbar';
 import { formatDate, formatDisplayDate } from '@/lib/utils/date';
 import { startOfWeek, endOfWeek, addWeeks, subWeeks, eachDayOfInterval } from 'date-fns';
 import { exportWeeklyReportToPDF, exportWeeklyReportToXLS, WeeklyReportData } from '@/lib/utils/export';
@@ -165,40 +165,18 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <Button onClick={goToPreviousWeek} variant="secondary">
-            ← Previous Week
-          </Button>
-          <div className="text-center">
-            <p className="text-lg font-semibold text-gray-900">
-              {formatDisplayDate(formatDate(currentWeekStart))} - {formatDisplayDate(formatDate(weekEnd))}
-            </p>
-            <Button onClick={goToCurrentWeek} variant="secondary" className="mt-2 text-sm">
-              Current Week
-            </Button>
-          </div>
-          <Button onClick={goToNextWeek} variant="secondary">
-            Next Week →
-          </Button>
-        </div>
-        <div className="flex gap-2">
-          <Button 
-            onClick={handleExportPDF} 
-            variant="secondary"
-            disabled={loading || employees.length === 0}
-          >
-            📄 Download PDF
-          </Button>
-          <Button 
-            onClick={handleExportXLS} 
-            variant="secondary"
-            disabled={loading || employees.length === 0}
-          >
-            📊 Download XLS
-          </Button>
-        </div>
-      </div>
+      <ReportToolbar
+        label={`${formatDisplayDate(formatDate(currentWeekStart))} - ${formatDisplayDate(formatDate(weekEnd))}`}
+        onPrevious={goToPreviousWeek}
+        onNext={goToNextWeek}
+        onCurrent={goToCurrentWeek}
+        previousLabel="Previous Week"
+        nextLabel="Next Week"
+        currentLabel="Current Week"
+        onExportPDF={handleExportPDF}
+        onExportXLS={handleExportXLS}
+        exportDisabled={loading || employees.length === 0}
+      />
 
       {loading ? (
         <p className="text-center text-gray-500 py-8">Loading...</p>
@@ -206,11 +184,50 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
         <p className="text-center text-gray-500 py-8">No employees found for this week.</p>
       ) : (
         <>
-          <div className="bg-white rounded-lg shadow overflow-x-auto">
+          <div className="md:hidden space-y-3">
+            {employees.map((employee) => (
+              <div key={employee.id} className="bg-white rounded-lg shadow p-4">
+                <div className="flex items-baseline justify-between gap-3">
+                  <p className="font-medium text-gray-900 truncate">{employee.last_name} {employee.first_name}</p>
+                  <p className="shrink-0 text-sm font-semibold text-gray-900">{getEmployeeWeekTotal(employee.id).toFixed(2)} h</p>
+                </div>
+                <div className="mt-3 grid grid-cols-7 gap-1">
+                  {weekDays.map((day) => {
+                    const hours = getEmployeeHoursForDay(employee.id, day);
+                    return (
+                      <div
+                        key={day.toISOString()}
+                        className={`rounded-md py-1.5 text-center ${hours > 0 ? 'bg-blue-50 text-gray-900' : 'bg-gray-50 text-gray-400'}`}
+                      >
+                        <div className="text-[10px] uppercase tracking-wide">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                        <div className="text-xs font-semibold">{hours > 0 ? hours.toFixed(1) : '–'}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+            <div className="bg-gray-50 rounded-lg p-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="font-semibold text-gray-900">Daily Total</p>
+                <p className="shrink-0 text-sm font-bold text-gray-900">{getWeekTotal().toFixed(2)} h</p>
+              </div>
+              <div className="mt-3 grid grid-cols-7 gap-1">
+                {weekDays.map((day) => (
+                  <div key={day.toISOString()} className="rounded-md py-1.5 text-center bg-white">
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500">{day.toLocaleDateString('en-US', { weekday: 'short' })}</div>
+                    <div className="text-xs font-semibold text-gray-900">{getDayTotal(day).toFixed(1)}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden md:block bg-white rounded-lg shadow overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 border-r border-gray-200">
                     Employee
                   </th>
                   {weekDays.map((day) => (
@@ -228,7 +245,7 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
               <tbody className="bg-white divide-y divide-gray-200">
                 {employees.map((employee) => (
                   <tr key={employee.id}>
-                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white">
+                    <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900 sticky left-0 bg-white border-r border-gray-200">
                       {employee.last_name} {employee.first_name}
                     </td>
                     {weekDays.map((day) => {
@@ -245,7 +262,7 @@ export function WeeklyReport({ selectedStoreId }: WeeklyReportProps) {
                   </tr>
                 ))}
                 <tr className="bg-gray-50 font-semibold">
-                  <td className="px-4 py-3 text-sm text-gray-900 sticky left-0 bg-gray-50">
+                  <td className="px-4 py-3 text-sm text-gray-900 sticky left-0 bg-gray-50 border-r border-gray-200">
                     Daily Total
                   </td>
                   {weekDays.map((day) => (
